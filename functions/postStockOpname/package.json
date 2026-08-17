@@ -1,0 +1,13 @@
+{
+  "name": "post-stock-opname",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/core.test.mjs"
+  },
+  "dependencies": {
+    "node-appwrite": "^28.0.0"
+  }
+}
