@@ -65,6 +65,48 @@ export function buildJournalPlan({ gr_items, po_items_map }) {
   };
 }
 
+// ─── Purchase Return ──────────────────────────────────────────────────
+export function validatePostPRInput(payload) {
+  const errors = {};
+  const purchase_return_id = String(payload.purchase_return_id ?? "");
+  const created_by = String(payload.created_by ?? "");
+  if (!purchase_return_id) errors.purchase_return_id = "purchase_return_id wajib diisi.";
+  if (!created_by) errors.created_by = "created_by wajib diisi.";
+  return { errors, purchase_return_id, created_by };
+}
+
+export function buildPRJournalPlan({ pr_items, po_items_map }) {
+  let total = 0;
+  for (const ri of pr_items) {
+    const po_item = po_items_map.get(ri.product_id);
+    if (!po_item) continue;
+    total += Number(ri.quantity) * Number(ri.unit_price);
+  }
+  if (total <= 0) return { total_amount: 0, lines: [], error: "total_zero" };
+  return {
+    total_amount: total,
+    lines: [
+      { account_code: "2110", account_name: "Hutang Usaha", debit: total, credit: 0, description: "Hutang Usaha dari Purchase Return" },
+      { account_code: "1110", account_name: "Persediaan", debit: 0, credit: total, description: "Persediaan dari Purchase Return" },
+    ],
+  };
+}
+
+export function determinePOStatusAfterReturn(cumulative_received, cumulative_returned, po_items) {
+  let allFullyReceived = true;
+  let anyReceived = false;
+  for (const pi of po_items) {
+    const received = cumulative_received.get(pi.product_id) ?? 0;
+    const returned = cumulative_returned.get(pi.product_id) ?? 0;
+    const net = received - returned;
+    if (net > 0) anyReceived = true;
+    if (net < Number(pi.quantity)) allFullyReceived = false;
+  }
+  if (!anyReceived) return "ordered";
+  if (allFullyReceived) return "received";
+  return "partial";
+}
+
 export function determinePOStatus(cumulative, po_items) {
   let allFullyReceived = true;
   let anyReceived = false;
