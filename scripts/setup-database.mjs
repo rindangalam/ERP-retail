@@ -41,6 +41,18 @@ const PO_STATUS = ["draft", "ordered", "partial", "received", "cancelled"];
 
 const GR_STATUS = ["draft", "posted", "cancelled"];
 
+const PR_STATUS = ["draft", "posted", "cancelled"];
+const SO_STATUS = ["draft", "confirmed", "partially_invoiced", "invoiced", "cancelled"];
+const SI_STATUS = ["draft", "unpaid", "partial", "paid", "cancelled"];
+
+const SALES_READ = ["admin", "sales", "finance"].map((label) =>
+  Permission.read(Role.label(label))
+);
+const SALES_WRITE = ["admin", "sales"].map((label) =>
+  Permission.write(Role.label(label))
+);
+const SALES_RW = [...SALES_READ, ...SALES_WRITE];
+
 const GR_READ = ["admin", "warehouse", "purchasing", "finance"].map((label) =>
   Permission.read(Role.label(label))
 );
@@ -57,6 +69,14 @@ const FINANCE_WRITE = ["admin", "finance"].map((label) =>
 );
 
 const JOURNAL_NO_ROLE_WRITE = [];
+
+const CB_READ = ["admin", "finance", "sales"].map((label) =>
+  Permission.read(Role.label(label))
+);
+const CB_WRITE = ["admin", "finance"].map((label) =>
+  Permission.write(Role.label(label))
+);
+const CB_RW = [...CB_READ, ...CB_WRITE];
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"];
 
@@ -415,6 +435,254 @@ const COLLECTIONS = [
     indexes: [
       { key: "idx_journal_entry_id", type: DatabasesIndexType.Key, attributes: ["journal_entry_id"] },
       { key: "idx_account_id", type: DatabasesIndexType.Key, attributes: ["account_id"] },
+    ],
+  },
+  {
+    collectionId: "purchase_returns",
+    name: "Purchase Returns",
+    permissions: PURCHASING_RW,
+    attributes: [
+      { key: "return_number", type: "string", size: 50, required: true },
+      { key: "supplier_id", type: "string", size: 36, required: true },
+      { key: "purchase_order_id", type: "string", size: 36, required: false },
+      { key: "return_date", type: "string", size: 10, required: true },
+      { key: "status", type: "enum", elements: PR_STATUS, required: true },
+      { key: "notes", type: "string", size: 500, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "posted_by", type: "string", size: 36, required: false },
+      { key: "posted_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_return_number", type: DatabasesIndexType.Unique, attributes: ["return_number"] },
+      { key: "idx_supplier_id", type: DatabasesIndexType.Key, attributes: ["supplier_id"] },
+      { key: "idx_status", type: DatabasesIndexType.Key, attributes: ["status"] },
+    ],
+  },
+  {
+    collectionId: "purchase_return_items",
+    name: "Purchase Return Items",
+    permissions: PURCHASING_RW,
+    attributes: [
+      { key: "purchase_return_id", type: "string", size: 36, required: true },
+      { key: "product_id", type: "string", size: 36, required: true },
+      { key: "quantity", type: "number", required: true },
+      { key: "unit_price", type: "number", required: true },
+    ],
+    indexes: [
+      { key: "idx_purchase_return_id", type: DatabasesIndexType.Key, attributes: ["purchase_return_id"] },
+      { key: "idx_product_id", type: DatabasesIndexType.Key, attributes: ["product_id"] },
+    ],
+  },
+  {
+    collectionId: "customers",
+    name: "Customers",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "code", type: "string", size: 50, required: true },
+      { key: "name", type: "string", size: 255, required: true },
+      { key: "contact_person", type: "string", size: 255, required: false },
+      { key: "phone", type: "string", size: 50, required: false },
+      { key: "email", type: "string", size: 255, required: false },
+      { key: "address", type: "string", size: 500, required: false },
+      { key: "credit_limit", type: "number", required: false },
+      { key: "is_active", type: "boolean", required: true },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "updated_by", type: "string", size: 36, required: false },
+      { key: "updated_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_code", type: DatabasesIndexType.Unique, attributes: ["code"] },
+      { key: "idx_is_active", type: DatabasesIndexType.Key, attributes: ["is_active"] },
+    ],
+  },
+  {
+    collectionId: "sales_orders",
+    name: "Sales Orders",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "so_number", type: "string", size: 50, required: true },
+      { key: "customer_id", type: "string", size: 36, required: true },
+      { key: "order_date", type: "string", size: 10, required: true },
+      { key: "expected_date", type: "string", size: 10, required: false },
+      { key: "status", type: "enum", elements: SO_STATUS, required: true },
+      { key: "total_amount", type: "number", required: true },
+      { key: "notes", type: "string", size: 500, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "updated_by", type: "string", size: 36, required: false },
+      { key: "updated_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_so_number", type: DatabasesIndexType.Unique, attributes: ["so_number"] },
+      { key: "idx_customer_id", type: DatabasesIndexType.Key, attributes: ["customer_id"] },
+      { key: "idx_status", type: DatabasesIndexType.Key, attributes: ["status"] },
+    ],
+  },
+  {
+    collectionId: "sales_order_items",
+    name: "Sales Order Items",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "sales_order_id", type: "string", size: 36, required: true },
+      { key: "product_id", type: "string", size: 36, required: true },
+      { key: "quantity", type: "number", required: true },
+      { key: "unit_price", type: "number", required: true },
+      { key: "line_total", type: "number", required: true },
+    ],
+    indexes: [
+      { key: "idx_sales_order_id", type: DatabasesIndexType.Key, attributes: ["sales_order_id"] },
+      { key: "idx_product_id", type: DatabasesIndexType.Key, attributes: ["product_id"] },
+    ],
+  },
+  {
+    collectionId: "sales_invoices",
+    name: "Sales Invoices",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "invoice_number", type: "string", size: 50, required: true },
+      { key: "sales_order_id", type: "string", size: 36, required: true },
+      { key: "customer_id", type: "string", size: 36, required: true },
+      { key: "invoice_date", type: "string", size: 10, required: true },
+      { key: "due_date", type: "string", size: 10, required: true },
+      { key: "subtotal", type: "number", required: true },
+      { key: "discount", type: "number", required: false },
+      { key: "tax", type: "number", required: false },
+      { key: "total_amount", type: "number", required: true },
+      { key: "status", type: "enum", elements: SI_STATUS, required: true },
+      { key: "stock_override", type: "boolean", required: false },
+      { key: "override_by", type: "string", size: 36, required: false },
+      { key: "override_note", type: "string", size: 500, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "posted_by", type: "string", size: 36, required: false },
+      { key: "posted_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_invoice_number", type: DatabasesIndexType.Unique, attributes: ["invoice_number"] },
+      { key: "idx_sales_order_id", type: DatabasesIndexType.Key, attributes: ["sales_order_id"] },
+      { key: "idx_customer_id", type: DatabasesIndexType.Key, attributes: ["customer_id"] },
+      { key: "idx_status", type: DatabasesIndexType.Key, attributes: ["status"] },
+    ],
+  },
+  {
+    collectionId: "sales_invoice_items",
+    name: "Sales Invoice Items",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "sales_invoice_id", type: "string", size: 36, required: true },
+      { key: "sales_order_item_id", type: "string", size: 36, required: false },
+      { key: "product_id", type: "string", size: 36, required: true },
+      { key: "quantity", type: "number", required: true },
+      { key: "unit_price", type: "number", required: true },
+      { key: "line_total", type: "number", required: true },
+    ],
+    indexes: [
+      { key: "idx_sales_invoice_id", type: DatabasesIndexType.Key, attributes: ["sales_invoice_id"] },
+      { key: "idx_product_id", type: DatabasesIndexType.Key, attributes: ["product_id"] },
+    ],
+  },
+  {
+    collectionId: "sales_payments",
+    name: "Sales Payments",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "invoice_id", type: "string", size: 36, required: true },
+      { key: "customer_id", type: "string", size: 36, required: true },
+      { key: "payment_date", type: "string", size: 10, required: true },
+      { key: "amount", type: "number", required: true },
+      { key: "method", type: "enum", elements: ["cash", "bank_transfer", "other"], required: true },
+      { key: "cash_bank_account_id", type: "string", size: 36, required: false },
+      { key: "reference", type: "string", size: 200, required: false },
+      { key: "notes", type: "string", size: 500, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+    ],
+    indexes: [
+      { key: "idx_invoice_id", type: DatabasesIndexType.Key, attributes: ["invoice_id"] },
+      { key: "idx_payment_date", type: DatabasesIndexType.Key, attributes: ["payment_date"] },
+    ],
+  },
+  {
+    collectionId: "sales_returns",
+    name: "Sales Returns",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "return_number", type: "string", size: 50, required: true },
+      { key: "sales_invoice_id", type: "string", size: 36, required: true },
+      { key: "customer_id", type: "string", size: 36, required: true },
+      { key: "return_date", type: "string", size: 10, required: true },
+      { key: "status", type: "enum", elements: ["draft", "posted", "cancelled"], required: true },
+      { key: "notes", type: "string", size: 500, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "posted_by", type: "string", size: 36, required: false },
+      { key: "posted_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_return_number", type: DatabasesIndexType.Unique, attributes: ["return_number"] },
+      { key: "idx_sales_invoice_id", type: DatabasesIndexType.Key, attributes: ["sales_invoice_id"] },
+      { key: "idx_customer_id", type: DatabasesIndexType.Key, attributes: ["customer_id"] },
+      { key: "idx_sr_status", type: DatabasesIndexType.Key, attributes: ["status"] },
+    ],
+  },
+  {
+    collectionId: "sales_return_items",
+    name: "Sales Return Items",
+    permissions: SALES_RW,
+    attributes: [
+      { key: "sales_return_id", type: "string", size: 36, required: true },
+      { key: "sales_invoice_item_id", type: "string", size: 36, required: false },
+      { key: "product_id", type: "string", size: 36, required: true },
+      { key: "quantity", type: "number", required: true },
+      { key: "unit_price", type: "number", required: true },
+    ],
+    indexes: [
+      { key: "idx_sales_return_id", type: DatabasesIndexType.Key, attributes: ["sales_return_id"] },
+      { key: "idx_sri_product_id", type: DatabasesIndexType.Key, attributes: ["product_id"] },
+    ],
+  },
+  {
+    collectionId: "cash_bank_accounts",
+    name: "Cash & Bank Accounts",
+    permissions: CB_RW,
+    attributes: [
+      { key: "name", type: "string", size: 100, required: true },
+      { key: "account_type", type: "enum", elements: ["cash", "bank"], required: true },
+      { key: "bank_name", type: "string", size: 100, required: false },
+      { key: "account_number", type: "string", size: 50, required: false },
+      { key: "opening_balance", type: "number", required: false, xdefault: 0 },
+      { key: "is_active", type: "boolean", required: true },
+      { key: "coa_account_id", type: "string", size: 36, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "updated_by", type: "string", size: 36, required: false },
+      { key: "updated_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_cba_name", type: DatabasesIndexType.Key, attributes: ["name"] },
+      { key: "idx_cba_type", type: DatabasesIndexType.Key, attributes: ["account_type"] },
+    ],
+  },
+  {
+    collectionId: "cash_bank_transactions",
+    name: "Cash & Bank Transactions",
+    permissions: CB_RW,
+    attributes: [
+      { key: "cash_bank_account_id", type: "string", size: 36, required: true },
+      { key: "transaction_date", type: "string", size: 10, required: true },
+      { key: "transaction_type", type: "enum", elements: ["in", "out"], required: true },
+      { key: "amount", type: "number", required: true },
+      { key: "source_type", type: "string", size: 40, required: false },
+      { key: "source_id", type: "string", size: 36, required: false },
+      { key: "description", type: "string", size: 500, required: true },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+    ],
+    indexes: [
+      { key: "idx_cbt_account", type: DatabasesIndexType.Key, attributes: ["cash_bank_account_id"] },
+      { key: "idx_cbt_date", type: DatabasesIndexType.Key, attributes: ["transaction_date"] },
     ],
   },
 ];
