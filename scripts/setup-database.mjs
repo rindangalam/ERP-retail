@@ -78,6 +78,14 @@ const CB_WRITE = ["admin", "finance"].map((label) =>
 );
 const CB_RW = [...CB_READ, ...CB_WRITE];
 
+const HR_READ = ["admin", "hr", "finance"].map((label) =>
+  Permission.read(Role.label(label))
+);
+const HR_WRITE = ["admin", "hr"].map((label) =>
+  Permission.write(Role.label(label))
+);
+const HR_RW = [...HR_READ, ...HR_WRITE];
+
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"];
 
 const COLLECTIONS = [
@@ -683,6 +691,86 @@ const COLLECTIONS = [
     indexes: [
       { key: "idx_cbt_account", type: DatabasesIndexType.Key, attributes: ["cash_bank_account_id"] },
       { key: "idx_cbt_date", type: DatabasesIndexType.Key, attributes: ["transaction_date"] },
+    ],
+  },
+  {
+    collectionId: "employees",
+    name: "Employees",
+    permissions: HR_RW,
+    attributes: [
+      { key: "employee_number", type: "string", size: 50, required: true },
+      { key: "user_id", type: "string", size: 36, required: false },
+      { key: "full_name", type: "string", size: 200, required: true },
+      { key: "position", type: "string", size: 100, required: true },
+      { key: "basic_salary", type: "number", required: true },
+      { key: "hire_date", type: "string", size: 10, required: true },
+      { key: "status", type: "enum", elements: ["active", "resigned"], required: true },
+      { key: "phone", type: "string", size: 30, required: false },
+      { key: "address", type: "string", size: 500, required: false },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "updated_by", type: "string", size: 36, required: false },
+      { key: "updated_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_emp_number", type: DatabasesIndexType.Unique, attributes: ["employee_number"] },
+      { key: "idx_emp_status", type: DatabasesIndexType.Key, attributes: ["status"] },
+    ],
+  },
+  {
+    collectionId: "salary_components",
+    name: "Salary Components",
+    permissions: HR_RW,
+    attributes: [
+      { key: "employee_id", type: "string", size: 36, required: true },
+      { key: "component_type", type: "enum", elements: ["allowance", "deduction"], required: true },
+      { key: "name", type: "string", size: 100, required: true },
+      { key: "amount", type: "number", required: true },
+      { key: "is_active", type: "boolean", required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+    ],
+    indexes: [
+      { key: "idx_sc_employee", type: DatabasesIndexType.Key, attributes: ["employee_id"] },
+    ],
+  },
+  {
+    collectionId: "payroll_runs",
+    name: "Payroll Runs",
+    permissions: HR_RW,
+    attributes: [
+      { key: "payroll_number", type: "string", size: 50, required: true },
+      { key: "period", type: "string", size: 7, required: true },
+      { key: "run_date", type: "string", size: 10, required: true },
+      { key: "status", type: "enum", elements: ["draft", "posted", "cancelled"], required: true },
+      { key: "total_gross", type: "number", required: true },
+      { key: "total_deduction", type: "number", required: true },
+      { key: "total_net", type: "number", required: true },
+      { key: "created_by", type: "string", size: 36, required: true },
+      { key: "created_at", type: "string", size: 40, required: true },
+      { key: "posted_by", type: "string", size: 36, required: false },
+      { key: "posted_at", type: "string", size: 40, required: false },
+    ],
+    indexes: [
+      { key: "idx_pr_number", type: DatabasesIndexType.Unique, attributes: ["payroll_number"] },
+      { key: "idx_pr_period", type: DatabasesIndexType.Key, attributes: ["period"] },
+      { key: "idx_pr_status", type: DatabasesIndexType.Key, attributes: ["status"] },
+    ],
+  },
+  {
+    collectionId: "payroll_details",
+    name: "Payroll Details",
+    permissions: HR_RW,
+    attributes: [
+      { key: "payroll_run_id", type: "string", size: 36, required: true },
+      { key: "employee_id", type: "string", size: 36, required: true },
+      { key: "basic_salary", type: "number", required: true },
+      { key: "total_allowance", type: "number", required: true },
+      { key: "total_deduction", type: "number", required: true },
+      { key: "net_salary", type: "number", required: true },
+    ],
+    indexes: [
+      { key: "idx_pd_run", type: DatabasesIndexType.Key, attributes: ["payroll_run_id"] },
+      { key: "idx_pd_employee", type: DatabasesIndexType.Key, attributes: ["employee_id"] },
     ],
   },
 ];
