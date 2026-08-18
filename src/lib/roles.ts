@@ -45,6 +45,8 @@ export const MENU_ITEMS: MenuItem[] = [
   { title: "Neraca", href: "/reports/neraca", roles: ["admin", "finance"] },
   { title: "Laba Rugi", href: "/reports/laba-rugi", roles: ["admin", "finance"] },
   { title: "Arus Kas", href: "/reports/arus-kas", roles: ["admin", "finance"] },
+  { title: "Karyawan", href: "/employees", roles: ["admin", "hr", "finance"] },
+  { title: "Payroll", href: "/payroll", roles: ["admin", "hr", "finance"] },
   { title: "Sales", href: "/sales", roles: ["admin", "sales"], comingSoon: true },
   { title: "Finance", href: "/finance", roles: ["admin", "finance"], comingSoon: true },
   { title: "HR & Payroll", href: "/hr", roles: ["admin", "hr"], comingSoon: true },
