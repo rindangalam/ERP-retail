@@ -149,7 +149,7 @@ export async function listPOsForGR(): Promise<PurchaseOrderWithItems[]> {
     results.push({
       ...toPlain(po),
       supplier_name: supplierMap.get(po.supplier_id) ?? "—",
-      items: items as PurchaseOrderWithItems["items"],
+      items: items.map((item: unknown) => toPlain(item as Record<string, unknown>)) as PurchaseOrderWithItems["items"],
     });
   }
   return results;
