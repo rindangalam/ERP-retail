@@ -35,7 +35,7 @@ export function JournalEntriesClient({ initialData }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Jurnal Umum</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Jurnal Umum</h1>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
@@ -67,7 +67,7 @@ export function JournalEntriesClient({ initialData }: Props) {
         <Button size="sm" variant="ghost" onClick={clearFilter}>Reset</Button>
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -84,7 +84,7 @@ export function JournalEntriesClient({ initialData }: Props) {
             {initialData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  Belum ada data jurnal.
+                  Belum ada data jurnal. Jurnal dibuat otomatis dari transaksi penjualan, pembelian, dan pembayaran.
                 </TableCell>
               </TableRow>
             ) : (
