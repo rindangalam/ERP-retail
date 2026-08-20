@@ -1,6 +1,6 @@
 import "server-only";
-import { ID, Query } from "node-appwrite";
-import { adminDatabases } from "./appwrite-server";
+import { Functions, ID, Query } from "node-appwrite";
+import { adminDatabases, getAdminClient } from "./appwrite-server";
 import { listEmployees, getAllowances, getDeductions } from "./employee";
 
 const DATABASE_ID = "erp";
@@ -163,7 +163,7 @@ export async function generatePayroll(period: string, runDate: string, userId: s
   return { ok: true, id: runDoc.$id };
 }
 
-export async function cancelPayrollRun(id: string, userId: string): Promise<{ ok: boolean; errors?: Record<string, string> }> {
+export async function cancelPayrollRun(id: string, _userId: string): Promise<{ ok: boolean; errors?: Record<string, string> }> {
   try {
     const db = adminDatabases();
     await db.updateDocument({
@@ -177,4 +177,40 @@ export async function cancelPayrollRun(id: string, userId: string): Promise<{ ok
     console.error("cancelPayrollRun failed:", error);
     return { ok: false, errors: { _form: "Gagal membatalkan payroll." } };
   }
+}
+
+export async function postPayroll(
+  payrollRunId: string,
+  userId: string
+): Promise<{ ok: boolean; journal_entry_id?: string; errors?: Record<string, string> }> {
+  const functions = new Functions(getAdminClient());
+  let run;
+  try {
+    run = await functions.createExecution({
+      functionId: "post-stock-opname",
+      body: JSON.stringify({ type: "payroll", payroll_run_id: payrollRunId, created_by: userId }),
+      async: false,
+    });
+  } catch (error) {
+    console.error("postPayroll execution failed:", error);
+    return { ok: false, errors: { _form: "Gagal menjalankan Function payroll." } };
+  }
+
+  const statusCode = (run as unknown as { responseStatusCode?: number }).responseStatusCode;
+  const body = (run as unknown as { responseBody?: string }).responseBody ?? "";
+  let parsed: { ok?: boolean; errors?: Record<string, string>; journal_entry_id?: string } | null = null;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    parsed = null;
+  }
+
+  if (statusCode === 200 && parsed?.ok) {
+    return { ok: true, journal_entry_id: parsed.journal_entry_id };
+  }
+
+  return {
+    ok: false,
+    errors: parsed?.errors ?? { _form: `Function payroll gagal (HTTP ${statusCode}).` },
+  };
 }

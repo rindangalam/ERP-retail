@@ -37,6 +37,11 @@ const PURCHASING_WRITE = ["admin", "purchasing"].map((label) =>
 );
 const PURCHASING_RW = [...PURCHASING_READ, ...PURCHASING_WRITE];
 
+const PURCHASING_WAREHOUSE_READ = ["admin", "purchasing", "finance", "warehouse"].map((label) =>
+  Permission.read(Role.label(label))
+);
+const PURCHASING_WAREHOUSE_RW = [...PURCHASING_WAREHOUSE_READ, ...PURCHASING_WRITE];
+
 const PO_STATUS = ["draft", "ordered", "partial", "received", "cancelled"];
 
 const GR_STATUS = ["draft", "posted", "cancelled"];
@@ -45,13 +50,15 @@ const PR_STATUS = ["draft", "posted", "cancelled"];
 const SO_STATUS = ["draft", "confirmed", "partially_invoiced", "invoiced", "cancelled"];
 const SI_STATUS = ["draft", "unpaid", "partial", "paid", "cancelled"];
 
-const SALES_READ = ["admin", "sales", "finance"].map((label) =>
+const SALES_READ = ["admin", "sales", "finance", "warehouse"].map((label) =>
   Permission.read(Role.label(label))
 );
 const SALES_WRITE = ["admin", "sales"].map((label) =>
   Permission.write(Role.label(label))
 );
 const SALES_RW = [...SALES_READ, ...SALES_WRITE];
+
+const SALES_FINANCE_WRITE = [...SALES_READ, ...SALES_WRITE, Permission.write(Role.label("finance"))];
 
 const GR_READ = ["admin", "warehouse", "purchasing", "finance"].map((label) =>
   Permission.read(Role.label(label))
@@ -448,7 +455,7 @@ const COLLECTIONS = [
   {
     collectionId: "purchase_returns",
     name: "Purchase Returns",
-    permissions: PURCHASING_RW,
+    permissions: PURCHASING_WAREHOUSE_RW,
     attributes: [
       { key: "return_number", type: "string", size: 50, required: true },
       { key: "supplier_id", type: "string", size: 36, required: true },
@@ -470,7 +477,7 @@ const COLLECTIONS = [
   {
     collectionId: "purchase_return_items",
     name: "Purchase Return Items",
-    permissions: PURCHASING_RW,
+    permissions: PURCHASING_WAREHOUSE_RW,
     attributes: [
       { key: "purchase_return_id", type: "string", size: 36, required: true },
       { key: "product_id", type: "string", size: 36, required: true },
@@ -594,7 +601,7 @@ const COLLECTIONS = [
   {
     collectionId: "sales_payments",
     name: "Sales Payments",
-    permissions: SALES_RW,
+    permissions: SALES_FINANCE_WRITE,
     attributes: [
       { key: "invoice_id", type: "string", size: 36, required: true },
       { key: "customer_id", type: "string", size: 36, required: true },

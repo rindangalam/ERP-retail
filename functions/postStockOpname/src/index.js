@@ -32,6 +32,9 @@ const SO_COLLECTION = process.env.ERP_SALES_ORDERS_COLLECTION || "sales_orders";
 const SO_ITEMS_COLLECTION = process.env.ERP_SALES_ORDER_ITEMS_COLLECTION || "sales_order_items";
 const SR_COLLECTION = process.env.ERP_SALES_RETURNS_COLLECTION || "sales_returns";
 const SRI_COLLECTION = process.env.ERP_SALES_RETURN_ITEMS_COLLECTION || "sales_return_items";
+const PAYROLL_RUNS_COLLECTION = process.env.ERP_PAYROLL_RUNS_COLLECTION || "payroll_runs";
+const PAYROLL_DETAILS_COLLECTION = process.env.ERP_PAYROLL_DETAILS_COLLECTION || "payroll_details";
+const EMPLOYEES_COLLECTION = process.env.ERP_EMPLOYEES_COLLECTION || "employees";
 
 const MOVEMENT_READ_LABELS = ["admin", "warehouse", "finance"];
 
@@ -885,6 +888,124 @@ async function handlePostSalesReturn(databases, payload, res, error) {
   }
 }
 
+async function handlePostPayroll(databases, payload, res, error) {
+  const { payroll_run_id, created_by } = payload;
+  if (!payroll_run_id) return res.json({ ok: false, errors: { payroll_run_id: "wajib" } }, 400);
+  if (!created_by) return res.json({ ok: false, errors: { created_by: "wajib" } }, 400);
+
+  try {
+    const run = await databases.getDocument(DATABASE_ID, PAYROLL_RUNS_COLLECTION, payroll_run_id);
+    if (run.status !== "draft") {
+      return res.json(
+        { ok: false, errors: { _form: `Payroll sudah ${run.status === "posted" ? "di-posting" : "dibatalkan"}.` } },
+        409
+      );
+    }
+
+    const details = await listByField(databases, PAYROLL_DETAILS_COLLECTION, "payroll_run_id", payroll_run_id);
+    if (details.length === 0) {
+      return res.json({ ok: false, errors: { _form: "Payroll tidak memiliki detail karyawan." } }, 400);
+    }
+
+    const totalNet = Number(run.total_net);
+    if (totalNet <= 0) {
+      return res.json({ ok: false, errors: { _form: "Total gaji bersih harus > 0." } }, 400);
+    }
+
+    // Fetch employee names for description
+    const empIds = [...new Set(details.map((d) => d.employee_id))];
+    const empNames = [];
+    for (const eid of empIds) {
+      try {
+        const emp = await databases.getDocument(DATABASE_ID, EMPLOYEES_COLLECTION, eid);
+        empNames.push(emp.full_name || emp.employee_number || eid);
+      } catch {
+        empNames.push(eid);
+      }
+    }
+    const desc = `Payroll ${run.payroll_number} — ${empNames.join(", ")}`.slice(0, 500);
+
+    // Get COA accounts
+    const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
+    const coa_map = new Map(coa_accounts.documents.map((a) => [a.code, a]));
+    const bebanGaji = coa_map.get("5100");
+    const kas = coa_map.get("1110");
+    if (!bebanGaji || !kas) {
+      return res.json({ ok: false, errors: { _form: "Akun 5100/1110 tidak ditemukan di COA." } }, 500);
+    }
+
+    const now = new Date().toISOString();
+
+    // Generate JE number
+    const all_entries = await databases.listDocuments(DATABASE_ID, JE_COLLECTION, [Query.orderDesc("entry_number"), Query.limit(1)]);
+    let nextJE = "JE-001";
+    if (all_entries.documents.length > 0) {
+      const m = all_entries.documents[0].entry_number.match(/JE-(\d+)/);
+      if (m) nextJE = `JE-${String(parseInt(m[1], 10) + 1).padStart(3, "0")}`;
+    }
+
+    // Create journal entry: Debit Beban Gaji, Credit Kas
+    const je_doc = await databases.createDocument(
+      DATABASE_ID, JE_COLLECTION, ID.unique(),
+      {
+        entry_number: nextJE,
+        entry_date: run.run_date || now.slice(0, 10),
+        source_type: "payroll",
+        source_id: payroll_run_id,
+        description: desc,
+        total_debit: totalNet,
+        total_credit: totalNet,
+        status: "posted",
+        created_by: "system",
+        created_at: now,
+      },
+      MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
+    );
+
+    await databases.createDocument(
+      DATABASE_ID, JEL_COLLECTION, ID.unique(),
+      {
+        journal_entry_id: je_doc.$id,
+        account_id: bebanGaji.$id,
+        debit: totalNet,
+        credit: 0,
+        description: desc,
+      },
+      MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
+    );
+
+    await databases.createDocument(
+      DATABASE_ID, JEL_COLLECTION, ID.unique(),
+      {
+        journal_entry_id: je_doc.$id,
+        account_id: kas.$id,
+        debit: 0,
+        credit: totalNet,
+        description: desc,
+      },
+      MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
+    );
+
+    // Mark payroll run posted
+    await databases.updateDocument(DATABASE_ID, PAYROLL_RUNS_COLLECTION, payroll_run_id, {
+      status: "posted",
+      posted_by: created_by,
+      posted_at: now,
+    });
+
+    return res.json({
+      ok: true, posted: true,
+      journal_entry_id: je_doc.$id,
+      total_debit: totalNet,
+      total_credit: totalNet,
+    });
+  } catch (e) {
+    if (e.code === 404) return res.json({ ok: false, errors: { _form: "Payroll tidak ditemukan." } }, 404);
+    error(String(e));
+    return res.json({ ok: false, errors: { _form: "postPayroll gagal: " + e.message } }, 500);
+  }
+}
+
 export default async ({ req, res, log, error }) => {
   const env = (req && req.env) || process.env || {};
   const client = new Client()
@@ -931,6 +1052,14 @@ export default async ({ req, res, log, error }) => {
     } catch (e) {
       error("UNCAUGHT sales_return: " + String(e));
       return res.json({ ok: false, errors: { _form: "sales_return uncaught: " + e.message } }, 500);
+    }
+  }
+  if (type === "payroll") {
+    try {
+      return await handlePostPayroll(databases, payload, res, error);
+    } catch (e) {
+      error("UNCAUGHT payroll: " + String(e));
+      return res.json({ ok: false, errors: { _form: "payroll uncaught: " + e.message } }, 500);
     }
   }
 

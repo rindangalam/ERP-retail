@@ -113,5 +113,8 @@ await ensureVariable(fn.$id, "ERP_SALES_ORDERS_COLLECTION", "sales_orders");
 await ensureVariable(fn.$id, "ERP_SALES_ORDER_ITEMS_COLLECTION", "sales_order_items");
 await ensureVariable(fn.$id, "ERP_SALES_RETURNS_COLLECTION", "sales_returns");
 await ensureVariable(fn.$id, "ERP_SALES_RETURN_ITEMS_COLLECTION", "sales_return_items");
+await ensureVariable(fn.$id, "ERP_PAYROLL_RUNS_COLLECTION", "payroll_runs");
+await ensureVariable(fn.$id, "ERP_PAYROLL_DETAILS_COLLECTION", "payroll_details");
+await ensureVariable(fn.$id, "ERP_EMPLOYEES_COLLECTION", "employees");
 await deploy(fn.$id);
 console.log("SELESAI: postStockOpname ter-deploy.");
