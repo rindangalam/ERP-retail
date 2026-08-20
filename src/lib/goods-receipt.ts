@@ -12,7 +12,6 @@ const GR_COLLECTION = "goods_receipts";
 const GR_ITEMS_COLLECTION = "goods_receipt_items";
 const PO_COLLECTION = "purchase_orders";
 const PO_ITEMS_COLLECTION = "purchase_order_items";
-const PRODUCTS_COLLECTION = "products";
 
 const GR_READ = ["admin", "warehouse", "purchasing", "finance"];
 
@@ -163,7 +162,7 @@ export async function createGoodsReceipt(
   if (!validated.ok) return validated;
 
   const db = adminDatabases();
-  const po = await db.getDocument(DATABASE_ID, PO_COLLECTION, input.purchase_order_id) as unknown as PurchaseOrderWithItems;
+  await db.getDocument(DATABASE_ID, PO_COLLECTION, input.purchase_order_id) as unknown as PurchaseOrderWithItems;
 
   // Generate GR number
   const prefix = `GR-${input.received_date.replaceAll("-", "")}-`;

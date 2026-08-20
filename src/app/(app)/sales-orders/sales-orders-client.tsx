@@ -37,7 +37,7 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "",
   confirmed: "text-blue-600",
   partially_invoiced: "text-amber-600",
-  invoiced: "text-emerald-600",
+  invoiced: "text-positive",
   cancelled: "text-muted-foreground",
 };
 
@@ -86,11 +86,11 @@ export function SalesOrdersClient({ salesOrders }: SalesOrdersClientProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sales Order</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold tracking-tight">Sales Order</h1>
+          <p className="text-xs text-muted-foreground">
             Order penjualan ke customer.
           </p>
         </div>
@@ -100,10 +100,10 @@ export function SalesOrdersClient({ salesOrders }: SalesOrdersClientProps) {
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
       )}
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -119,7 +119,7 @@ export function SalesOrdersClient({ salesOrders }: SalesOrdersClientProps) {
             {salesOrders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  Belum ada sales order.
+                  Belum ada sales order. Buat order pertama untuk memulai.
                 </TableCell>
               </TableRow>
             ) : (

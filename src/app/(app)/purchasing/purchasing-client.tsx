@@ -35,7 +35,7 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "",
   ordered: "text-blue-600",
   partial: "text-amber-600",
-  received: "text-emerald-600",
+  received: "text-positive",
   cancelled: "text-muted-foreground",
 };
 
@@ -49,11 +49,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function PurchasingClient({ purchaseOrders }: PurchasingClientProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Purchase Order</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold tracking-tight">Purchase Order</h1>
+          <p className="text-xs text-muted-foreground">
             Rencana pembelian ke supplier sebelum barang diterima.
           </p>
         </div>
@@ -62,7 +62,7 @@ export function PurchasingClient({ purchaseOrders }: PurchasingClientProps) {
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -78,7 +78,7 @@ export function PurchasingClient({ purchaseOrders }: PurchasingClientProps) {
             {purchaseOrders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  Belum ada purchase order.
+                  Belum ada purchase order. Buat PO pertama untuk memulai.
                 </TableCell>
               </TableRow>
             ) : (

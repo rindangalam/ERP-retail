@@ -176,7 +176,7 @@ export type SCInput = {
 export async function createSalaryComponent(
   employeeId: string,
   input: SCInput,
-  userId: string
+  _userId: string
 ): Promise<Result<SalaryComponent>> {
   if (!input.name?.trim())
     return { ok: false, errors: { name: "Wajib diisi." }, code: "validation" };

@@ -67,16 +67,16 @@ export default function SalesInvoicesClient({ invoices }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Sales Invoices</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Sales Invoices</h1>
         <Button asChild size="sm">
           <a href="/sales-invoices/new">+ Buat Invoice</a>
         </Button>
       </div>
 
       {invoices.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Belum ada invoice.</p>
+        <p className="text-xs text-muted-foreground">Belum ada invoice. Buat invoice pertama untuk memulai.</p>
       ) : (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

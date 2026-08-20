@@ -15,7 +15,7 @@ export function EmployeeDetailClient({ employee, components }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [, setErrors] = React.useState<Record<string, string>>({});
   const [compType, setCompType] = React.useState<"allowance" | "deduction">("allowance");
   const [compName, setCompName] = React.useState("");
   const [compAmount, setCompAmount] = React.useState("");
@@ -31,22 +31,22 @@ export function EmployeeDetailClient({ employee, components }: Props) {
   const deductions = components.filter((c) => c.component_type === "deduction" && c.is_active).reduce((s, c) => s + c.amount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{employee.full_name}</h1>
+            <h1 className="text-lg font-semibold tracking-tight">{employee.full_name}</h1>
             <Badge variant={employee.status === "active" ? "default" : "secondary"}>{employee.status === "active" ? "Aktif" : "Keluar"}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">{employee.employee_number} - {employee.position}</p>
         </div>
         <Button size="sm" variant="outline" asChild><Link href="/employees">Kembali</Link></Button>
       </div>
-      <div className="grid grid-cols-2 gap-4 text-sm rounded-md border p-4 max-w-xl">
-        <div><span className="text-muted-foreground">Gaji Pokok:</span><p className="font-medium">{employee.basic_salary.toLocaleString("id-ID")}</p></div>
+      <div className="grid grid-cols-2 gap-4 text-sm rounded-lg border border-border bg-card shadow-card p-4 max-w-xl">
+        <div><span className="text-muted-foreground">Gaji Pokok:</span><p className="font-medium font-mono tabular-nums">{employee.basic_salary.toLocaleString("id-ID")}</p></div>
         <div><span className="text-muted-foreground">Tanggal Masuk:</span><p>{employee.hire_date}</p></div>
         <div><span className="text-muted-foreground">Telepon:</span><p>{employee.phone || "-"}</p></div>
-        <div><span className="text-muted-foreground">Estimasi Gaji Bersih:</span><p className="font-bold">{(employee.basic_salary + allowances - deductions).toLocaleString("id-ID")}</p></div>
+        <div><span className="text-muted-foreground">Estimasi Gaji Bersih:</span><p className="font-bold font-mono tabular-nums">{(employee.basic_salary + allowances - deductions).toLocaleString("id-ID")}</p></div>
       </div>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -68,20 +68,20 @@ export function EmployeeDetailClient({ employee, components }: Props) {
             <div className="flex gap-2"><Button type="submit" size="sm" disabled={loading}>{loading ? "Menyimpan..." : "Simpan"}</Button><Button type="button" size="sm" variant="outline" onClick={resetForm}>Batal</Button></div>
           </form>
         )}
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
           <Table>
             <TableHeader><TableRow><TableHead>Tipe</TableHead><TableHead>Nama</TableHead><TableHead className="text-right w-[120px]">Jumlah</TableHead><TableHead>Status</TableHead><TableHead className="text-right w-[80px]">Aksi</TableHead></TableRow></TableHeader>
             <TableBody>
               {components.length === 0 ? (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">Belum ada komponen gaji.</TableCell></TableRow>) : (
-                components.map((c) => (<TableRow key={c.$id}><TableCell><Badge variant={c.component_type === "allowance" ? "default" : "destructive"}>{c.component_type === "allowance" ? "Tunjangan" : "Potongan"}</Badge></TableCell><TableCell>{c.name}</TableCell><TableCell className="text-right text-xs">{c.amount.toLocaleString("id-ID")}</TableCell><TableCell><Badge variant={c.is_active ? "default" : "secondary"}>{c.is_active ? "Aktif" : "Nonaktif"}</Badge></TableCell><TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => handleToggle(c.$id)}>{c.is_active ? "Nonaktifkan" : "Aktifkan"}</Button></TableCell></TableRow>))
+                components.map((c) => (<TableRow key={c.$id}><TableCell><Badge variant={c.component_type === "allowance" ? "default" : "destructive"}>{c.component_type === "allowance" ? "Tunjangan" : "Potongan"}</Badge></TableCell><TableCell>{c.name}</TableCell><TableCell className="text-right text-xs font-mono tabular-nums">{c.amount.toLocaleString("id-ID")}</TableCell><TableCell><Badge variant={c.is_active ? "default" : "secondary"}>{c.is_active ? "Aktif" : "Nonaktif"}</Badge></TableCell><TableCell className="text-right"><Button size="sm" variant="ghost" onClick={() => handleToggle(c.$id)}>{c.is_active ? "Nonaktifkan" : "Aktifkan"}</Button></TableCell></TableRow>))
               )}
             </TableBody>
           </Table>
         </div>
         <div className="grid grid-cols-3 gap-4 text-sm max-w-md">
-          <div className="rounded-md border p-3 text-center"><p className="text-muted-foreground text-xs">Total Tunjangan</p><p className="font-bold text-green-600">{allowances.toLocaleString("id-ID")}</p></div>
-          <div className="rounded-md border p-3 text-center"><p className="text-muted-foreground text-xs">Total Potongan</p><p className="font-bold text-red-600">{deductions.toLocaleString("id-ID")}</p></div>
-          <div className="rounded-md border p-3 text-center"><p className="text-muted-foreground text-xs">Gaji Bersih</p><p className="font-bold">{(employee.basic_salary + allowances - deductions).toLocaleString("id-ID")}</p></div>
+          <div className="rounded-lg border border-border bg-card shadow-card p-3 text-center"><p className="text-muted-foreground text-xs">Total Tunjangan</p><p className="font-bold font-mono tabular-nums text-positive">{allowances.toLocaleString("id-ID")}</p></div>
+          <div className="rounded-lg border border-border bg-card shadow-card p-3 text-center"><p className="text-muted-foreground text-xs">Total Potongan</p><p className="font-bold font-mono tabular-nums text-destructive">{deductions.toLocaleString("id-ID")}</p></div>
+          <div className="rounded-lg border border-border bg-card shadow-card p-3 text-center"><p className="text-muted-foreground text-xs">Gaji Bersih</p><p className="font-bold font-mono tabular-nums">{(employee.basic_salary + allowances - deductions).toLocaleString("id-ID")}</p></div>
         </div>
       </div>
     </div>

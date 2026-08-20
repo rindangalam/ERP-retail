@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -22,7 +22,7 @@ type Props = {
 
 export function PurchaseReturnsClient({ initialData }: Props) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -53,22 +53,22 @@ export function PurchaseReturnsClient({ initialData }: Props) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Purchase Returns</CardTitle>
-            <CardDescription>Retur pembelian ke supplier</CardDescription>
-          </div>
-          <Button asChild>
-            <Link href="/purchase-returns/new">Retur Barang</Link>
-          </Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Purchase Returns</h1>
+          <p className="text-xs text-muted-foreground">Retur pembelian ke supplier</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
-        )}
+        <Button asChild>
+          <Link href="/purchase-returns/new">Retur Barang</Link>
+        </Button>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+      )}
+
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -84,7 +84,7 @@ export function PurchaseReturnsClient({ initialData }: Props) {
             {initialData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  Belum ada purchase return.
+                  Belum ada purchase return. Buat retur pembelian pertama.
                 </TableCell>
               </TableRow>
             ) : (
@@ -123,7 +123,7 @@ export function PurchaseReturnsClient({ initialData }: Props) {
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

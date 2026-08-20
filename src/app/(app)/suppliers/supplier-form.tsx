@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { type SupplierActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const PAYMENT_TERM_OPTIONS = [
   { value: "cod", label: "COD (Tunai)" },
@@ -50,6 +51,8 @@ export function SupplierForm({
   const router = useRouter();
   const submitted = useRef(false);
 
+  useActionToast(state, mode === "create" ? "Supplier berhasil dibuat" : "Supplier berhasil diperbarui");
+
   useEffect(() => {
     if (state?.ok && !submitted.current) {
       submitted.current = true;
@@ -66,25 +69,25 @@ export function SupplierForm({
     <form action={formAction} className="space-y-4">
       {supplierId ? <input type="hidden" name="id" value={supplierId} /> : null}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="code">Kode supplier</Label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="code" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kode supplier</Label>
           <Input id="code" name="code" defaultValue={initialCode} placeholder="SUP-001" required />
           {state?.errors?.code ? (
-            <p role="alert" className="text-sm text-destructive">{state.errors.code}</p>
+            <p role="alert" className="text-xs text-destructive">{state.errors.code}</p>
           ) : null}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="name">Nama supplier</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="name" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Nama supplier</Label>
           <Input id="name" name="name" defaultValue={initialName} required />
           {state?.errors?.name ? (
-            <p role="alert" className="text-sm text-destructive">{state.errors.name}</p>
+            <p role="alert" className="text-xs text-destructive">{state.errors.name}</p>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="contact_person">Nama kontak</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="contact_person" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Nama kontak</Label>
         <Input
           id="contact_person"
           name="contact_person"
@@ -92,29 +95,29 @@ export function SupplierForm({
           placeholder="Opsional"
         />
         {state?.errors?.contact_person ? (
-          <p role="alert" className="text-sm text-destructive">{state.errors.contact_person}</p>
+          <p role="alert" className="text-xs text-destructive">{state.errors.contact_person}</p>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="phone">Telepon</Label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="phone" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Telepon</Label>
           <Input id="phone" name="phone" defaultValue={initialPhone} placeholder="Opsional" />
           {state?.errors?.phone ? (
-            <p role="alert" className="text-sm text-destructive">{state.errors.phone}</p>
+            <p role="alert" className="text-xs text-destructive">{state.errors.phone}</p>
           ) : null}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</Label>
           <Input id="email" name="email" type="email" defaultValue={initialEmail} placeholder="Opsional" />
           {state?.errors?.email ? (
-            <p role="alert" className="text-sm text-destructive">{state.errors.email}</p>
+            <p role="alert" className="text-xs text-destructive">{state.errors.email}</p>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="address">Alamat</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="address" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Alamat</Label>
         <Textarea
           id="address"
           name="address"
@@ -123,12 +126,12 @@ export function SupplierForm({
           placeholder="Opsional"
         />
         {state?.errors?.address ? (
-          <p role="alert" className="text-sm text-destructive">{state.errors.address}</p>
+          <p role="alert" className="text-xs text-destructive">{state.errors.address}</p>
         ) : null}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="payment_terms">Termin pembayaran</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="payment_terms" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Termin pembayaran</Label>
         <select id="payment_terms" name="payment_terms" defaultValue={initialPaymentTerms} className={SELECT_CLASS}>
           <option value="">Pilih termin (opsional)</option>
           {PAYMENT_TERM_OPTIONS.map((opt) => (
@@ -136,15 +139,15 @@ export function SupplierForm({
           ))}
         </select>
         {state?.errors?.payment_terms ? (
-          <p role="alert" className="text-sm text-destructive">{state.errors.payment_terms}</p>
+          <p role="alert" className="text-xs text-destructive">{state.errors.payment_terms}</p>
         ) : null}
       </div>
 
       {state?.message && !state.ok ? (
-        <p role="alert" className="text-sm text-destructive">{state.message}</p>
+        <p role="alert" className="text-xs text-destructive">{state.message}</p>
       ) : null}
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-2 border-t pt-3">
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Batal
         </Button>

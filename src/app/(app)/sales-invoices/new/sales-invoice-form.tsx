@@ -129,11 +129,11 @@ export default function SalesInvoiceForm({ confirmedSOs }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
-      {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
 
       <div>
-        <h1 className="text-xl font-semibold">Buat Invoice dari Sales Order</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Buat Invoice dari Sales Order</h1>
         <p className="text-muted-foreground text-sm mt-1">Pilih SO yang sudah dikonfirmasi untuk membuat invoice.</p>
       </div>
 
@@ -157,7 +157,7 @@ export default function SalesInvoiceForm({ confirmedSOs }: Props) {
               ))}
             </select>
           )}
-          {errors.sales_order_id && <p className="text-xs text-red-600">{errors.sales_order_id}</p>}
+          {errors.sales_order_id && <p className="text-xs text-destructive">{errors.sales_order_id}</p>}
         </div>
 
         <div className="space-y-2">
@@ -178,20 +178,20 @@ export default function SalesInvoiceForm({ confirmedSOs }: Props) {
         <div className="space-y-2">
           <label htmlFor="discount" className="text-sm font-medium">Diskon (Rp)</label>
           <Input id="discount" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" />
-          {errors.discount && <p className="text-xs text-red-600">{errors.discount}</p>}
+          {errors.discount && <p className="text-xs text-destructive">{errors.discount}</p>}
         </div>
 
         <div className="space-y-2">
           <label htmlFor="tax" className="text-sm font-medium">Pajak (Rp)</label>
           <Input id="tax" type="number" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="0" />
-          {errors.tax && <p className="text-xs text-red-600">{errors.tax}</p>}
+          {errors.tax && <p className="text-xs text-destructive">{errors.tax}</p>}
         </div>
       </div>
 
       {items.length > 0 && (
         <div className="space-y-2">
           <label className="text-sm font-medium">Item Invoice</label>
-          <div className="rounded-md border overflow-x-auto">
+          <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
@@ -251,7 +251,7 @@ export default function SalesInvoiceForm({ confirmedSOs }: Props) {
               </tfoot>
             </table>
           </div>
-          {errors.items && <p className="text-xs text-red-600">{errors.items}</p>}
+          {errors.items && <p className="text-xs text-destructive">{errors.items}</p>}
         </div>
       )}
 
@@ -275,7 +275,7 @@ export default function SalesInvoiceForm({ confirmedSOs }: Props) {
               onChange={(e) => setOverrideNote(e.target.value)}
               placeholder="Alasan override stok..."
             />
-            {errors.override_note && <p className="text-xs text-red-600">{errors.override_note}</p>}
+            {errors.override_note && <p className="text-xs text-destructive">{errors.override_note}</p>}
           </div>
         )}
       </div>

@@ -15,15 +15,15 @@ export default async function JournalEntryDetailPage({
   if (!entry) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Detail Jurnal — {entry.entry_number}</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Detail Jurnal — {entry.entry_number}</h1>
         <Link href="/journal-entries" className="text-sm text-blue-600 hover:underline">
           ← Kembali
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm rounded-md border p-4 max-w-xl">
+      <div className="grid grid-cols-2 gap-4 text-sm rounded-lg border border-border bg-card shadow-card p-4 max-w-xl">
         <div>
           <span className="text-muted-foreground">No. Jurnal:</span>
           <p className="font-mono font-medium">{entry.entry_number}</p>
@@ -54,7 +54,7 @@ export default async function JournalEntryDetailPage({
         </div>
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

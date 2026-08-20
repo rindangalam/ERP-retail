@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { MotionButton } from "@/components/motion-button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
@@ -35,15 +36,15 @@ export function PayrollClient({ initialData }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Payroll</h1>
-        {!showForm && <Button size="sm" onClick={() => { setShowForm(true); setErrors({}); }}>+ Generate Payroll</Button>}
+        <h1 className="text-lg font-semibold tracking-tight">Payroll</h1>
+        {!showForm && <MotionButton size="sm" onClick={() => { setShowForm(true); setErrors({}); }}>+ Generate Payroll</MotionButton>}
       </div>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-md border p-4 space-y-3 max-w-lg">
           <h2 className="font-semibold">Generate Payroll Baru</h2>
-          {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
-          {errors.period && <p className="text-sm text-red-600">{errors.period}</p>}
+          {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
+          {errors.period && <p className="text-sm text-destructive">{errors.period}</p>}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label htmlFor="period" className="text-sm font-medium">Periode (YYYY-MM)</label>
@@ -63,7 +64,7 @@ export function PayrollClient({ initialData }: Props) {
         </form>
       )}
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -79,7 +80,7 @@ export function PayrollClient({ initialData }: Props) {
           </TableHeader>
           <TableBody>
             {initialData.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Belum ada data payroll.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Belum ada data payroll. Buat run payroll pertama untuk memulai.</TableCell></TableRow>
             ) : (
               initialData.map((item) => (
                 <TableRow key={item.$id}>

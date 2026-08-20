@@ -12,8 +12,8 @@ type Props = { data: IncomeStatementData };
 function Section({ title, items, total }: { title: string; items: AccountBalance[]; total: number }) {
   return (
     <div className="space-y-2">
-      <h3 className="font-semibold text-sm">{title}</h3>
-      <div className="rounded-md border overflow-x-auto">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -30,13 +30,13 @@ function Section({ title, items, total }: { title: string; items: AccountBalance
                 <TableRow key={item.account_id}>
                   <TableCell className="font-mono text-xs">{item.account_code}</TableCell>
                   <TableCell>{item.account_name}</TableCell>
-                  <TableCell className="text-right text-xs">{item.balance.toLocaleString("id-ID")}</TableCell>
+                  <TableCell className="text-right text-xs font-mono tabular-nums">{item.balance.toLocaleString("id-ID")}</TableCell>
                 </TableRow>
               ))
             )}
             <TableRow className="font-semibold border-t">
               <TableCell colSpan={2}>Total {title}</TableCell>
-              <TableCell className="text-right text-xs">{total.toLocaleString("id-ID")}</TableCell>
+              <TableCell className="text-right text-xs font-mono tabular-nums">{total.toLocaleString("id-ID")}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -55,37 +55,35 @@ export function LabaRugiClient({ data }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Laba Rugi (Income Statement)</h1>
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-lg font-semibold tracking-tight">Laba Rugi</h1>
 
-      <div className="flex items-end gap-3 rounded-md border p-3">
+      <div className="flex items-end gap-3 rounded-lg border border-border bg-card shadow-card p-3">
         <div className="space-y-1">
-          <label htmlFor="from" className="text-xs font-medium">Dari</label>
+          <label htmlFor="from" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Dari</label>
           <input id="from" type="date" value={fromVal} onChange={(e) => setFromVal(e.target.value)}
-            className="rounded-md border px-2 py-1.5 text-sm" />
+            className="rounded-md border border-input px-2 py-1.5 text-sm" />
         </div>
         <div className="space-y-1">
-          <label htmlFor="to" className="text-xs font-medium">Sampai</label>
+          <label htmlFor="to" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Sampai</label>
           <input id="to" type="date" value={toVal} onChange={(e) => setToVal(e.target.value)}
-            className="rounded-md border px-2 py-1.5 text-sm" />
+            className="rounded-md border border-input px-2 py-1.5 text-sm" />
         </div>
         <Button size="sm" onClick={applyFilter}>Tampilkan</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Section title="Pendapatan" items={data.revenues} total={data.totalRevenue} />
         <Section title="Beban" items={data.expenses} total={data.totalExpenses} />
       </div>
 
-      <div className="rounded-md border p-4 max-w-md">
-        <h3 className="font-semibold text-sm mb-2">Laba Bersih</h3>
+      <div className="rounded-lg border border-border bg-card shadow-card p-4 max-w-md">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Laba Bersih</h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>Total Pendapatan:</div><div className="text-right">{data.totalRevenue.toLocaleString("id-ID")}</div>
-          <div>Total Beban:</div><div className="text-right">{data.totalExpenses.toLocaleString("id-ID")}</div>
+          <div>Total Pendapatan:</div><div className="text-right font-mono tabular-nums">{data.totalRevenue.toLocaleString("id-ID")}</div>
+          <div>Total Beban:</div><div className="text-right font-mono tabular-nums">{data.totalExpenses.toLocaleString("id-ID")}</div>
           <div className="font-semibold border-t pt-1">Laba Bersih:</div>
-          <div className="text-right font-bold border-t pt-1">{data.netIncome.toLocaleString("id-ID")}</div>
+          <div className={`text-right font-bold border-t pt-1 font-mono tabular-nums ${data.netIncome >= 0 ? "text-positive" : "text-negative"}`}>{data.netIncome.toLocaleString("id-ID")}</div>
         </div>
         <div className="mt-2">
           <Badge variant={data.netIncome >= 0 ? "default" : "destructive"}>

@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MotionButton } from "@/components/motion-button";
+import { EmptyState } from "@/components/empty-state";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -51,16 +54,16 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Kategori Produk</h1>
-          <p className="text-sm text-muted-foreground">Kelola kategori untuk master produk.</p>
+          <h1 className="text-lg font-semibold tracking-tight">Kategori Produk</h1>
+          <p className="text-xs text-muted-foreground">Kelola kategori untuk master produk.</p>
         </div>
-        <Button onClick={openCreate}>Tambah Kategori</Button>
+        <MotionButton onClick={openCreate}>Tambah Kategori</MotionButton>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -73,8 +76,13 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
           <TableBody>
             {categories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                  Belum ada kategori.
+                <TableCell colSpan={4} className="h-24 p-0">
+                  <EmptyState
+                    icon={Tags}
+                    title="Belum ada kategori"
+                    description="Tambahkan kategori pertama untuk mengelompokkan produk."
+                    action={<Button onClick={openCreate}>Tambah Kategori</Button>}
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -86,7 +94,7 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
                   </TableCell>
                   <TableCell>
                     {category.is_active ? (
-                      <Badge variant="outline" className="text-emerald-600">Aktif</Badge>
+                      <Badge variant="outline" className="text-positive">Aktif</Badge>
                     ) : (
                       <Badge variant="outline" className="text-destructive">Nonaktif</Badge>
                     )}
@@ -121,28 +129,26 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
         </Table>
       </div>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{editing ? "Edit Kategori" : "Tambah Kategori"}</SheetTitle>
-            <SheetDescription>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Kategori" : "Tambah Kategori"}</DialogTitle>
+            <DialogDescription>
               {editing
                 ? "Perbarui informasi kategori di bawah ini."
                 : "Buat kategori baru untuk master produk."}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6">
-            <CategoryForm
-              mode={editing ? "edit" : "create"}
-              categoryId={editing?.id}
-              initialName={editing?.name}
-              initialDescription={editing?.description}
-              action={editing ? updateCategoryAction : createCategoryAction}
-              onOpenChange={setOpen}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+            </DialogDescription>
+          </DialogHeader>
+          <CategoryForm
+            mode={editing ? "edit" : "create"}
+            categoryId={editing?.id}
+            initialName={editing?.name}
+            initialDescription={editing?.description}
+            action={editing ? updateCategoryAction : createCategoryAction}
+            onOpenChange={setOpen}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -58,7 +58,7 @@ export default async function UsersPage() {
                   </td>
                   <td className="py-2">
                     {profile.is_active ? (
-                      <Badge variant="outline" className="text-emerald-600">Aktif</Badge>
+                      <Badge variant="outline" className="text-positive">Aktif</Badge>
                     ) : (
                       <Badge variant="outline" className="text-destructive">Nonaktif</Badge>
                     )}

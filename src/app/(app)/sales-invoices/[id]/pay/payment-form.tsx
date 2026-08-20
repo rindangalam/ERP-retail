@@ -95,8 +95,8 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="rounded-md border p-4 space-y-3">
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div className="rounded-lg border border-border bg-card shadow-card p-4 space-y-3">
         <h2 className="font-semibold">Invoice</h2>
         <dl className="grid grid-cols-2 gap-2 text-sm">
           <dt className="text-muted-foreground">Nomor</dt>
@@ -115,10 +115,10 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
       </div>
 
       {isPayable ? (
-        <form onSubmit={handleSubmit} className="rounded-md border p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="rounded-lg border border-border bg-card shadow-card p-4 space-y-4">
           <h2 className="font-semibold">Catat Pembayaran</h2>
 
-          {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
+          {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
 
           <div className="space-y-1">
             <label htmlFor="payment_date" className="text-sm font-medium">Tanggal Bayar</label>
@@ -130,7 +130,7 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
               className="w-full rounded-md border px-3 py-2 text-sm"
               required
             />
-            {errors.payment_date && <p className="text-xs text-red-600">{errors.payment_date}</p>}
+            {errors.payment_date && <p className="text-xs text-destructive">{errors.payment_date}</p>}
           </div>
 
           <div className="space-y-1">
@@ -146,7 +146,7 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
               className="w-full rounded-md border px-3 py-2 text-sm"
               required
             />
-            {errors.amount && <p className="text-xs text-red-600">{errors.amount}</p>}
+            {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
           </div>
 
           <div className="space-y-1">
@@ -161,7 +161,7 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
               <option value="bank_transfer">Transfer Bank</option>
               <option value="other">Lainnya</option>
             </select>
-            {errors.method && <p className="text-xs text-red-600">{errors.method}</p>}
+            {errors.method && <p className="text-xs text-destructive">{errors.method}</p>}
           </div>
 
           <div className="space-y-1">
@@ -198,7 +198,7 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
           </div>
         </form>
       ) : (
-        <div className="rounded-md border p-4 flex items-center justify-center">
+        <div className="rounded-lg border border-border bg-card shadow-card p-4 flex items-center justify-center">
           <p className="text-muted-foreground text-sm">
             Invoice dengan status &quot;{STATUS_LABEL[invoice.status]}&quot; tidak bisa dibayar.
           </p>
@@ -206,9 +206,9 @@ export function PaymentForm({ invoice, existingPayments, summary }: Props) {
       )}
 
       {existingPayments.length > 0 && (
-        <div className="lg:col-span-2 rounded-md border p-4 space-y-3">
+        <div className="lg:col-span-2 rounded-lg border border-border bg-card shadow-card p-4 space-y-3">
           <h2 className="font-semibold">Riwayat Pembayaran</h2>
-          <div className="rounded-md border overflow-x-auto">
+          <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">

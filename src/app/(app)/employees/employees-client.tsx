@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { MotionButton } from "@/components/motion-button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
@@ -55,26 +56,26 @@ export function EmployeesClient({ initialData }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Karyawan</h1>
-        {!showForm && <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>+ Tambah Karyawan</Button>}
+        <h1 className="text-lg font-semibold tracking-tight">Karyawan</h1>
+        {!showForm && <MotionButton size="sm" onClick={() => { resetForm(); setShowForm(true); }}>+ Tambah Karyawan</MotionButton>}
       </div>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-md border p-4 space-y-3 max-w-lg">
           <h2 className="font-semibold">{editItem ? "Edit Karyawan" : "Tambah Karyawan"}</h2>
-          {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
+          {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label htmlFor="emp_number" className="text-sm font-medium">No. Karyawan</label>
               <input id="emp_number" value={empNumber} onChange={(e) => setEmpNumber(e.target.value)}
                 className="w-full rounded-md border px-3 py-2 text-sm" required />
-              {errors.employee_number && <p className="text-xs text-red-600">{errors.employee_number}</p>}
+              {errors.employee_number && <p className="text-xs text-destructive">{errors.employee_number}</p>}
             </div>
             <div className="space-y-1">
               <label htmlFor="full_name" className="text-sm font-medium">Nama Lengkap</label>
               <input id="full_name" value={fullName} onChange={(e) => setFullName(e.target.value)}
                 className="w-full rounded-md border px-3 py-2 text-sm" required />
-              {errors.full_name && <p className="text-xs text-red-600">{errors.full_name}</p>}
+              {errors.full_name && <p className="text-xs text-destructive">{errors.full_name}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -108,7 +109,7 @@ export function EmployeesClient({ initialData }: Props) {
         </form>
       )}
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -123,7 +124,7 @@ export function EmployeesClient({ initialData }: Props) {
           </TableHeader>
           <TableBody>
             {initialData.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Belum ada karyawan.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Belum ada karyawan. Tambahkan karyawan pertama untuk memulai.</TableCell></TableRow>
             ) : (
               initialData.map((item) => (
                 <TableRow key={item.$id}>

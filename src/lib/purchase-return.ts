@@ -12,7 +12,6 @@ const DATABASE_ID = "erp";
 const PR_COLLECTION = "purchase_returns";
 const PR_ITEMS_COLLECTION = "purchase_return_items";
 const PO_COLLECTION = "purchase_orders";
-const PO_ITEMS_COLLECTION = "purchase_order_items";
 const GR_COLLECTION = "goods_receipts";
 const GR_ITEMS_COLLECTION = "goods_receipt_items";
 const PRODUCTS_COLLECTION = "products";
@@ -99,14 +98,12 @@ async function listByField(coll: string, field: string, value: string): Promise<
 
 export async function listPurchaseReturns(): Promise<PurchaseReturnWithItems[]> {
   const db = adminDatabases();
-  const [prResult, poResult, grResult] = await Promise.all([
+  const [prResult, poResult] = await Promise.all([
     db.listDocuments(DATABASE_ID, PR_COLLECTION, [Query.orderDesc("created_at")]),
     db.listDocuments(DATABASE_ID, PO_COLLECTION, []),
-    db.listDocuments(DATABASE_ID, GR_COLLECTION, []),
   ]);
 
   const poMap = new Map((poResult.documents as unknown as PurchaseOrderWithItems[]).map((po) => [po.$id, po]));
-  const grMap = new Map((grResult.documents as unknown as GoodsReceiptWithItems[]).map((gr) => [gr.$id, gr]));
   const suppliers = await listSuppliers({ includeInactive: true });
   const supplierMap = new Map(suppliers.map((s) => [s.$id, s.name]));
 

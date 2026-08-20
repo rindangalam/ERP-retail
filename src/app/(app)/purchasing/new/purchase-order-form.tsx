@@ -105,9 +105,9 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Buat Purchase Order</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Buat Purchase Order</h1>
         <p className="text-sm text-muted-foreground">
           Buat rencana pembelian ke supplier.
         </p>
@@ -159,7 +159,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

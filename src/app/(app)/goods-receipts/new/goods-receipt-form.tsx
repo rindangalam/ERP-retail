@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { _createGoodsReceipt } from "../actions";
 import type { PurchaseOrderWithItems } from "@/lib/purchase-order";
 
@@ -85,12 +85,12 @@ export function GoodsReceiptForm({ pos }: Props) {
 
   return (
     <form onSubmit={handleSubmit}>
-      {formError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
-      <Card>
-        <CardHeader>
-          <CardTitle>Form Goods Receipt</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {formError && <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>}
+      <div className="space-y-4 max-w-2xl">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Form Goods Receipt</h1>
+        </div>
+        <div>
           <div>
             <Label htmlFor="purchase_order_id">Purchase Order *</Label>
             <select
@@ -107,7 +107,7 @@ export function GoodsReceiptForm({ pos }: Props) {
                 </option>
               ))}
             </select>
-            {fieldErrors.purchase_order_id && <p className="text-sm text-red-500">{fieldErrors.purchase_order_id}</p>}
+            {fieldErrors.purchase_order_id && <p className="text-sm text-destructive">{fieldErrors.purchase_order_id}</p>}
           </div>
 
           <div>
@@ -119,7 +119,7 @@ export function GoodsReceiptForm({ pos }: Props) {
               value={receivedDate}
               onChange={(e) => setReceivedDate(e.target.value)}
             />
-            {fieldErrors.received_date && <p className="text-sm text-red-500">{fieldErrors.received_date}</p>}
+            {fieldErrors.received_date && <p className="text-sm text-destructive">{fieldErrors.received_date}</p>}
           </div>
 
           <div>
@@ -161,7 +161,7 @@ export function GoodsReceiptForm({ pos }: Props) {
                   ))}
                 </tbody>
               </table>
-              {fieldErrors.items && <p className="text-sm text-red-500">{fieldErrors.items}</p>}
+              {fieldErrors.items && <p className="text-sm text-destructive">{fieldErrors.items}</p>}
             </div>
           )}
 
@@ -173,8 +173,8 @@ export function GoodsReceiptForm({ pos }: Props) {
               {isPending ? "Menyimpan..." : "Simpan"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </form>
   );
 }

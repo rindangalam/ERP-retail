@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { _createPurchaseReturn } from "../actions";
 import type { GRForPR } from "@/lib/purchase-return";
 
@@ -95,12 +95,12 @@ export function PurchaseReturnForm({ grs }: Props) {
 
   return (
     <form onSubmit={handleSubmit}>
-      {formError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
-      <Card>
-        <CardHeader>
-          <CardTitle>Form Purchase Return</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {formError && <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>}
+      <div className="space-y-4 max-w-2xl">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Form Purchase Return</h1>
+        </div>
+        <div>
           <div>
             <Label htmlFor="gr_id">Goods Receipt *</Label>
             <select
@@ -117,7 +117,7 @@ export function PurchaseReturnForm({ grs }: Props) {
                 </option>
               ))}
             </select>
-            {fieldErrors.gr_id && <p className="text-sm text-red-500">{fieldErrors.gr_id}</p>}
+            {fieldErrors.gr_id && <p className="text-sm text-destructive">{fieldErrors.gr_id}</p>}
           </div>
 
           <div>
@@ -129,7 +129,7 @@ export function PurchaseReturnForm({ grs }: Props) {
               value={returnDate}
               onChange={(e) => setReturnDate(e.target.value)}
             />
-            {fieldErrors.return_date && <p className="text-sm text-red-500">{fieldErrors.return_date}</p>}
+            {fieldErrors.return_date && <p className="text-sm text-destructive">{fieldErrors.return_date}</p>}
           </div>
 
           <div>
@@ -173,11 +173,11 @@ export function PurchaseReturnForm({ grs }: Props) {
                   ))}
                 </tbody>
               </table>
-              {fieldErrors.items && <p className="text-sm text-red-500">{fieldErrors.items}</p>}
+              {fieldErrors.items && <p className="text-sm text-destructive">{fieldErrors.items}</p>}
             </div>
           )}
 
-          {fieldErrors.supplier_id && <p className="text-sm text-red-500">{fieldErrors.supplier_id}</p>}
+          {fieldErrors.supplier_id && <p className="text-sm text-destructive">{fieldErrors.supplier_id}</p>}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => router.push("/purchase-returns")} disabled={isPending}>
@@ -187,8 +187,8 @@ export function PurchaseReturnForm({ grs }: Props) {
               {isPending ? "Menyimpan..." : "Simpan"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </form>
   );
 }

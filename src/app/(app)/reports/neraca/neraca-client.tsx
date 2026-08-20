@@ -13,7 +13,7 @@ function BalanceRow({ item }: { item: AccountBalance }) {
     <TableRow>
       <TableCell className="font-mono text-xs">{item.account_code}</TableCell>
       <TableCell>{item.account_name}</TableCell>
-      <TableCell className="text-right text-xs">{item.balance.toLocaleString("id-ID")}</TableCell>
+      <TableCell className="text-right text-xs font-mono tabular-nums">{item.balance.toLocaleString("id-ID")}</TableCell>
     </TableRow>
   );
 }
@@ -23,8 +23,8 @@ function BalanceSection({ title, items, total, totalLabel }: {
 }) {
   return (
     <div className="space-y-2">
-      <h3 className="font-semibold text-sm">{title}</h3>
-      <div className="rounded-md border overflow-x-auto">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -41,7 +41,7 @@ function BalanceSection({ title, items, total, totalLabel }: {
             )}
             <TableRow className="font-semibold border-t">
               <TableCell colSpan={2}>{totalLabel}</TableCell>
-              <TableCell className="text-right text-xs">{total.toLocaleString("id-ID")}</TableCell>
+              <TableCell className="text-right text-xs font-mono tabular-nums">{total.toLocaleString("id-ID")}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -59,46 +59,44 @@ export function NeracaClient({ data }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Neraca (Balance Sheet)</h1>
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-lg font-semibold tracking-tight">Neraca</h1>
 
-      <div className="flex items-end gap-3 rounded-md border p-3">
+      <div className="flex items-end gap-3 rounded-lg border border-border bg-card shadow-card p-3">
         <div className="space-y-1">
-          <label htmlFor="as_of" className="text-xs font-medium">Tanggal</label>
+          <label htmlFor="as_of" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Tanggal</label>
           <input id="as_of" type="date" value={dateVal} onChange={(e) => setDateVal(e.target.value)}
-            className="rounded-md border px-2 py-1.5 text-sm" />
+            className="rounded-md border border-input px-2 py-1.5 text-sm" />
         </div>
         <Button size="sm" onClick={applyFilter}>Tampilkan</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <BalanceSection title="Aset (Assets)" items={data.assets} total={data.totalAssets} totalLabel="Total Aset" />
-          <BalanceSection title="Liabilitas (Liabilities)" items={data.liabilities} total={data.totalLiabilities} totalLabel="Total Liabilitas" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <BalanceSection title="Aset" items={data.assets} total={data.totalAssets} totalLabel="Total Aset" />
+          <BalanceSection title="Liabilitas" items={data.liabilities} total={data.totalLiabilities} totalLabel="Total Liabilitas" />
         </div>
-        <div className="space-y-6">
-          <BalanceSection title="Ekuitas (Equity)" items={data.equity} total={data.totalEquity - data.retainedEarnings} totalLabel="Total Ekuitas (tanpa Laba Ditahan)" />
-          <div className="rounded-md border p-4 space-y-2 max-w-sm">
-            <h3 className="font-semibold text-sm">Laba Ditahan (Retained Earnings)</h3>
-            <p className="text-xs text-muted-foreground">Pendapatan - Beban (akumulasi sampai tanggal ini)</p>
-            <p className="text-lg font-bold">{data.retainedEarnings.toLocaleString("id-ID")}</p>
+        <div className="space-y-4">
+          <BalanceSection title="Ekuitas" items={data.equity} total={data.totalEquity - data.retainedEarnings} totalLabel="Total Ekuitas (tanpa Laba Ditahan)" />
+          <div className="rounded-lg border border-border bg-card shadow-card p-4 space-y-2 max-w-sm">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Laba Ditahan</h3>
+            <p className="text-[10px] text-muted-foreground">Pendapatan - Beban (akumulasi sampai tanggal ini)</p>
+            <p className="font-mono text-lg font-semibold tabular-nums">{data.retainedEarnings.toLocaleString("id-ID")}</p>
           </div>
         </div>
       </div>
 
-      <div className="rounded-md border p-4 max-w-md">
-        <h3 className="font-semibold text-sm mb-2">Verifikasi Kesetimbangan</h3>
+      <div className="rounded-lg border border-border bg-card shadow-card p-4 max-w-md">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Verifikasi Kesetimbangan</h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>Total Aset:</div><div className="font-medium text-right">{data.totalAssets.toLocaleString("id-ID")}</div>
-          <div>Total Liabilitas + Ekuitas:</div><div className="font-medium text-right">{(data.totalLiabilities + data.totalEquity).toLocaleString("id-ID")}</div>
+          <div>Total Aset:</div><div className="font-medium text-right font-mono tabular-nums">{data.totalAssets.toLocaleString("id-ID")}</div>
+          <div>Total Liabilitas + Ekuitas:</div><div className="font-medium text-right font-mono tabular-nums">{(data.totalLiabilities + data.totalEquity).toLocaleString("id-ID")}</div>
         </div>
         <div className="mt-2 text-sm">
           {Math.abs(data.totalAssets - (data.totalLiabilities + data.totalEquity)) < 1 ? (
-            <span className="text-green-600 font-medium">✓ Seimbang</span>
+            <span className="text-positive font-medium">Seimbang</span>
           ) : (
-            <span className="text-red-600 font-medium">✗ Tidak Seimbang (selisih: {(data.totalAssets - data.totalLiabilities - data.totalEquity).toLocaleString("id-ID")})</span>
+            <span className="text-negative font-medium">Tidak Seimbang (selisih: {(data.totalAssets - data.totalLiabilities - data.totalEquity).toLocaleString("id-ID")})</span>
           )}
         </div>
       </div>

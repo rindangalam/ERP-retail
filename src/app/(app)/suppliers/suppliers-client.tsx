@@ -2,22 +2,18 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DataTable, type Column } from "@/components/data-table";
+import { MotionButton } from "@/components/motion-button";
+import { EmptyState } from "@/components/empty-state";
 import type { Supplier } from "@/lib/supplier";
 import {
   createSupplierAction,
@@ -72,117 +68,141 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
     setOpen(true);
   };
 
+  const columns: Column<Supplier>[] = [
+    {
+      key: "code",
+      header: "Kode",
+      sortable: true,
+      sortValue: (s) => s.code,
+      className: "font-mono text-xs",
+      render: (s) => s.code,
+    },
+    {
+      key: "name",
+      header: "Nama",
+      sortable: true,
+      sortValue: (s) => s.name,
+      className: "font-medium",
+      render: (s) => s.name,
+    },
+    {
+      key: "contact",
+      header: "Kontak",
+      className: "text-muted-foreground",
+      render: (s) => s.contact_person || "—",
+    },
+    {
+      key: "phone",
+      header: "Telepon",
+      className: "text-muted-foreground",
+      render: (s) => s.phone || "—",
+    },
+    {
+      key: "payment_terms",
+      header: "Termin",
+      sortable: true,
+      sortValue: (s) => s.payment_terms ?? "",
+      render: (s) =>
+        s.payment_terms ? (
+          <Badge variant="outline">
+            {PAYMENT_TERM_LABELS[s.payment_terms] ?? s.payment_terms}
+          </Badge>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortable: true,
+      sortValue: (s) => (s.is_active ? "aktif" : "nonaktif"),
+      render: (s) =>
+        s.is_active ? (
+          <Badge variant="outline" className="text-positive">Aktif</Badge>
+        ) : (
+          <Badge variant="outline" className="text-destructive">Nonaktif</Badge>
+        ),
+    },
+    {
+      key: "actions",
+      header: "Aksi",
+      className: "w-40",
+      render: (s) => (
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
+            Edit
+          </Button>
+          <form action={toggleSupplierActiveAction}>
+            <input type="hidden" name="id" value={s.$id} />
+            <input
+              type="hidden"
+              name="is_active"
+              value={String(!s.is_active)}
+            />
+            <Button variant="ghost" size="sm" type="submit">
+              {s.is_active ? "Nonaktifkan" : "Aktifkan"}
+            </Button>
+          </form>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Supplier</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold tracking-tight">Supplier</h1>
+          <p className="text-xs text-muted-foreground">
             Master pemasok untuk purchase order.
           </p>
         </div>
-        <Button onClick={openCreate}>Tambah Supplier</Button>
+        <MotionButton onClick={openCreate}>Tambah Supplier</MotionButton>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Kode</TableHead>
-              <TableHead>Nama</TableHead>
-              <TableHead>Kontak</TableHead>
-              <TableHead>Telepon</TableHead>
-              <TableHead>Termin</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-40">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {suppliers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                  Belum ada supplier.
-                </TableCell>
-              </TableRow>
-            ) : (
-              suppliers.map((supplier) => (
-                <TableRow key={supplier.$id}>
-                  <TableCell className="font-mono text-xs">{supplier.code}</TableCell>
-                  <TableCell className="font-medium">{supplier.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {supplier.contact_person || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {supplier.phone || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {supplier.payment_terms ? (
-                      <Badge variant="outline">
-                        {PAYMENT_TERM_LABELS[supplier.payment_terms] ?? supplier.payment_terms}
-                      </Badge>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {supplier.is_active ? (
-                      <Badge variant="outline" className="text-emerald-600">Aktif</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-destructive">Nonaktif</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(supplier)}>
-                        Edit
-                      </Button>
-                      <form action={toggleSupplierActiveAction}>
-                        <input type="hidden" name="id" value={supplier.$id} />
-                        <input
-                          type="hidden"
-                          name="is_active"
-                          value={String(!supplier.is_active)}
-                        />
-                        <Button variant="ghost" size="sm" type="submit">
-                          {supplier.is_active ? "Nonaktifkan" : "Aktifkan"}
-                        </Button>
-                      </form>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={suppliers}
+        rowKey={(s) => s.$id}
+        initialSort={{ key: "name", dir: "asc" }}
+        empty={
+          suppliers.length === 0 ? (
+            <EmptyState
+              icon={Truck}
+              title="Belum ada supplier"
+              description="Tambahkan supplier pertama untuk purchase order."
+              action={<Button onClick={openCreate}>Tambah Supplier</Button>}
+            />
+          ) : undefined
+        }
+        onRowClick={(s) => openEdit(s)}
+      />
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{editing ? "Edit Supplier" : "Tambah Supplier"}</SheetTitle>
-            <SheetDescription>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Supplier" : "Tambah Supplier"}</DialogTitle>
+            <DialogDescription>
               {editing
                 ? "Perbarui informasi supplier di bawah ini."
                 : "Buat data supplier baru untuk purchase order."}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6">
-            <SupplierForm
-              mode={editing ? "edit" : "create"}
-              supplierId={editing?.id}
-              initialCode={editing?.code}
-              initialName={editing?.name}
-              initialContactPerson={editing?.contact_person}
-              initialPhone={editing?.phone}
-              initialEmail={editing?.email}
-              initialAddress={editing?.address}
-              initialPaymentTerms={editing?.payment_terms}
-              action={editing ? updateSupplierAction : createSupplierAction}
-              onOpenChange={setOpen}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+            </DialogDescription>
+          </DialogHeader>
+          <SupplierForm
+            mode={editing ? "edit" : "create"}
+            supplierId={editing?.id}
+            initialCode={editing?.code}
+            initialName={editing?.name}
+            initialContactPerson={editing?.contact_person}
+            initialPhone={editing?.phone}
+            initialEmail={editing?.email}
+            initialAddress={editing?.address}
+            initialPaymentTerms={editing?.payment_terms}
+            action={editing ? updateSupplierAction : createSupplierAction}
+            onOpenChange={setOpen}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

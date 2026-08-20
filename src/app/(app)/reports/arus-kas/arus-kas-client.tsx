@@ -14,8 +14,8 @@ function CashFlowSection({ title, items, totalIn, totalOut }: {
   const net = totalIn - totalOut;
   return (
     <div className="space-y-2">
-      <h3 className="font-semibold text-sm">{title}</h3>
-      <div className="rounded-md border overflow-x-auto">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -33,14 +33,14 @@ function CashFlowSection({ title, items, totalIn, totalOut }: {
                 <TableRow key={idx}>
                   <TableCell className="text-xs">{item.source_type}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{item.description}</TableCell>
-                  <TableCell className="text-right text-xs">{item.amount_in > 0 ? item.amount_in.toLocaleString("id-ID") : "-"}</TableCell>
-                  <TableCell className="text-right text-xs">{item.amount_out > 0 ? item.amount_out.toLocaleString("id-ID") : "-"}</TableCell>
+                  <TableCell className="text-right text-xs font-mono tabular-nums">{item.amount_in > 0 ? item.amount_in.toLocaleString("id-ID") : "-"}</TableCell>
+                  <TableCell className="text-right text-xs font-mono tabular-nums">{item.amount_out > 0 ? item.amount_out.toLocaleString("id-ID") : "-"}</TableCell>
                 </TableRow>
               ))
             )}
             <TableRow className="font-semibold border-t">
               <TableCell colSpan={2}>Net {title}</TableCell>
-              <TableCell className="text-right text-xs" colSpan={2}>
+              <TableCell className="text-right text-xs font-mono tabular-nums" colSpan={2}>
                 {net.toLocaleString("id-ID")}
               </TableCell>
             </TableRow>
@@ -61,21 +61,19 @@ export function ArusKasClient({ data }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Arus Kas (Cash Flow Statement)</h1>
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-lg font-semibold tracking-tight">Arus Kas</h1>
 
-      <div className="flex items-end gap-3 rounded-md border p-3">
+      <div className="flex items-end gap-3 rounded-lg border border-border bg-card shadow-card p-3">
         <div className="space-y-1">
-          <label htmlFor="from" className="text-xs font-medium">Dari</label>
+          <label htmlFor="from" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Dari</label>
           <input id="from" type="date" value={fromVal} onChange={(e) => setFromVal(e.target.value)}
-            className="rounded-md border px-2 py-1.5 text-sm" />
+            className="rounded-md border border-input px-2 py-1.5 text-sm" />
         </div>
         <div className="space-y-1">
-          <label htmlFor="to" className="text-xs font-medium">Sampai</label>
+          <label htmlFor="to" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Sampai</label>
           <input id="to" type="date" value={toVal} onChange={(e) => setToVal(e.target.value)}
-            className="rounded-md border px-2 py-1.5 text-sm" />
+            className="rounded-md border border-input px-2 py-1.5 text-sm" />
         </div>
         <Button size="sm" onClick={applyFilter}>Tampilkan</Button>
       </div>
@@ -84,9 +82,9 @@ export function ArusKasClient({ data }: Props) {
       <CashFlowSection title="Investasi" items={data.investing} totalIn={data.totalInvestingIn} totalOut={data.totalInvestingOut} />
       <CashFlowSection title="Pendanaan" items={data.financing} totalIn={data.totalFinancingIn} totalOut={data.totalFinancingOut} />
 
-      <div className="rounded-md border p-4 max-w-md">
-        <h3 className="font-semibold text-sm mb-2">Net Perubahan Kas</h3>
-        <p className="text-lg font-bold">{data.netCashFlow.toLocaleString("id-ID")}</p>
+      <div className="rounded-lg border border-border bg-card shadow-card p-4 max-w-md">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Net Perubahan Kas</h3>
+        <p className={`font-mono text-lg font-semibold tabular-nums ${data.netCashFlow >= 0 ? "text-positive" : "text-negative"}`}>{data.netCashFlow.toLocaleString("id-ID")}</p>
       </div>
     </div>
   );

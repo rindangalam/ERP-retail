@@ -134,7 +134,7 @@ export async function createOpname(
 export async function updateOpname(
   id: string,
   input: { opname_date: string; note?: string },
-  userId: string
+  _userId: string
 ): Promise<Result<Opname>> {
   const existing = await getOpname(id);
   if (!existing) return { ok: false, errors: { _form: "Opname tidak ditemukan." } };
@@ -162,7 +162,7 @@ export async function updateOpname(
   }
 }
 
-export async function cancelOpname(id: string, userId: string): Promise<Result<Opname>> {
+export async function cancelOpname(id: string, _userId: string): Promise<Result<Opname>> {
   const existing = await getOpname(id);
   if (!existing) return { ok: false, errors: { _form: "Opname tidak ditemukan." } };
   if (existing.status !== "draft") {
@@ -185,7 +185,7 @@ export async function cancelOpname(id: string, userId: string): Promise<Result<O
 
 export async function addOpnameItem(
   input: { stock_opname_id: string; product_id: string; actual_qty: number; note?: string },
-  userId: string
+  _userId: string
 ): Promise<Result<OpnameItem>> {
   const errors = validateOpnameItemInput(input);
   if (errors) return { ok: false, errors };
@@ -239,7 +239,7 @@ export async function addOpnameItem(
 export async function updateOpnameItem(
   id: string,
   input: { actual_qty: number; note?: string },
-  userId: string
+  _userId: string
 ): Promise<Result<OpnameItem>> {
   const errors = validateOpnameItemInput({ product_id: "x", actual_qty: input.actual_qty, note: input.note });
   if (errors) return { ok: false, errors };
@@ -276,7 +276,7 @@ export async function updateOpnameItem(
   }
 }
 
-export async function deleteOpnameItem(id: string, userId: string): Promise<Result<null>> {
+export async function deleteOpnameItem(id: string, _userId: string): Promise<Result<null>> {
   let item: OpnameItem;
   try {
     item = toPlain(

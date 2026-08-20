@@ -47,11 +47,11 @@ export function CashBankDetailClient({ account, transactions, balance }: Props) 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{account.name}</h1>
+            <h1 className="text-lg font-semibold tracking-tight">{account.name}</h1>
             <Badge variant="outline">{account.account_type === "cash" ? "Kas" : "Bank"}</Badge>
           </div>
           {account.bank_name && (
@@ -68,15 +68,15 @@ export function CashBankDetailClient({ account, transactions, balance }: Props) 
         </div>
       </div>
 
-      <div className="rounded-md border p-4 max-w-sm">
+      <div className="rounded-lg border border-border bg-card shadow-card p-4 max-w-sm">
         <span className="text-sm text-muted-foreground">Saldo Saat Ini</span>
-        <p className="text-2xl font-bold">{balance.toLocaleString("id-ID")}</p>
+        <p className="text-2xl font-bold font-mono tabular-nums">{balance.toLocaleString("id-ID")}</p>
       </div>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-md border p-4 space-y-3 max-w-lg">
           <h2 className="font-semibold">Catat Transaksi</h2>
-          {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
+          {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <label htmlFor="txn_date" className="text-sm font-medium">Tanggal</label>
@@ -96,14 +96,14 @@ export function CashBankDetailClient({ account, transactions, balance }: Props) 
               <label htmlFor="amount" className="text-sm font-medium">Jumlah</label>
               <input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
                 className="w-full rounded-md border px-3 py-2 text-sm" required min="1" />
-              {errors.amount && <p className="text-xs text-red-600">{errors.amount}</p>}
+              {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
             </div>
           </div>
           <div className="space-y-1">
             <label htmlFor="description" className="text-sm font-medium">Keterangan</label>
             <input id="description" value={description} onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-md border px-3 py-2 text-sm" required />
-            {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
+            {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
           </div>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={loading}>{loading ? "Menyimpan..." : "Simpan"}</Button>
@@ -112,7 +112,7 @@ export function CashBankDetailClient({ account, transactions, balance }: Props) 
         </form>
       )}
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -140,10 +140,10 @@ export function CashBankDetailClient({ account, transactions, balance }: Props) 
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs">{txn.description}</TableCell>
-                  <TableCell className="text-right text-xs">
+                  <TableCell className="text-right text-xs font-mono tabular-nums">
                     {txn.transaction_type === "in" ? txn.amount.toLocaleString("id-ID") : "-"}
                   </TableCell>
-                  <TableCell className="text-right text-xs">
+                  <TableCell className="text-right text-xs font-mono tabular-nums">
                     {txn.transaction_type === "out" ? txn.amount.toLocaleString("id-ID") : "-"}
                   </TableCell>
                 </TableRow>

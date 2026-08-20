@@ -51,7 +51,7 @@ function formatDateTime(iso: string): string {
 function StatusBadge({ status }: { status: Opname["status"] }) {
   if (status === "posted") {
     return (
-      <Badge variant="outline" className="text-emerald-600">Posted</Badge>
+      <Badge variant="outline" className="text-positive">Posted</Badge>
     );
   }
   if (status === "cancelled") {
@@ -125,11 +125,11 @@ function OpnameList({
   }, [state, router, onOpen]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Stock Opname</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-lg font-semibold tracking-tight">Stock Opname</h1>
+          <p className="text-xs text-muted-foreground">
             Catat hasil hitung fisik dan bandingkan dengan stok sistem.
           </p>
         </div>
@@ -160,7 +160,7 @@ function OpnameList({
         ) : null}
       </form>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -189,7 +189,7 @@ function OpnameList({
                     <TableCell>{formatDate(opname.opname_date)}</TableCell>
                     <TableCell><StatusBadge status={opname.status} /></TableCell>
                     <TableCell className="text-right">{opnameItems.length}</TableCell>
-                    <TableCell className={`text-right ${totalDiff < 0 ? "text-destructive" : totalDiff > 0 ? "text-emerald-600" : ""}`}>
+                    <TableCell className={`text-right ${totalDiff < 0 ? "text-destructive" : totalDiff > 0 ? "text-positive" : ""}`}>
                       {totalDiff > 0 ? "+" : ""}{formatNumber(totalDiff)}
                     </TableCell>
                     <TableCell>
@@ -228,13 +228,13 @@ function OpnameDetail({
   const productById = useMemo(() => new Map(products.map((p) => [p.$id, p])), [products]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}>← Daftar</Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{opname.opname_number}</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg font-semibold tracking-tight">{opname.opname_number}</h1>
+            <p className="text-xs text-muted-foreground">
               Dibuat {formatDateTime(opname.created_at)} · {formatDate(opname.opname_date)}
               {opname.posted_at ? ` · Diposting ${formatDateTime(opname.posted_at)}` : ""}
             </p>
@@ -247,7 +247,7 @@ function OpnameDetail({
         <HeaderForm opname={opname} />
       ) : null}
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -441,7 +441,7 @@ function AddItemForm({
         <p className="text-sm text-muted-foreground">
           Stok sistem: <span className="font-medium">{formatNumber(systemQty)}</span>
           {" · "}Selisih:{" "}
-          <span className={`font-medium ${difference < 0 ? "text-destructive" : difference > 0 ? "text-emerald-600" : ""}`}>
+          <span className={`font-medium ${difference < 0 ? "text-destructive" : difference > 0 ? "text-positive" : ""}`}>
             {Number.isFinite(difference) ? (difference > 0 ? "+" : "") + formatNumber(difference) : "—"}
           </span>
         </p>
@@ -486,7 +486,7 @@ function ItemRow({
       <TableCell>{productLabel}</TableCell>
       <TableCell className="text-right">{formatNumber(Number(item.system_qty))}</TableCell>
       <TableCell className="text-right">{formatNumber(Number(item.actual_qty))}</TableCell>
-      <TableCell className={`text-right ${difference < 0 ? "text-destructive" : difference > 0 ? "text-emerald-600" : ""}`}>
+      <TableCell className={`text-right ${difference < 0 ? "text-destructive" : difference > 0 ? "text-positive" : ""}`}>
         {difference > 0 ? "+" : ""}{formatNumber(difference)}
       </TableCell>
       <TableCell className="text-muted-foreground">{item.note ?? "—"}</TableCell>

@@ -50,15 +50,15 @@ export function SalesReturnsClient({ initialData }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Sales Returns</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Sales Returns</h1>
         <Button asChild size="sm">
           <a href="/sales-returns/new">+ Buat Retur</a>
         </Button>
       </div>
       {initialData.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Belum ada retur.</p>
+        <p className="text-xs text-muted-foreground">Belum ada retur. Buat retur penjualan pertama.</p>
       ) : (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

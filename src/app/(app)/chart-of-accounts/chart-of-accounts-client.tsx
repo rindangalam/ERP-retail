@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { MotionButton } from "@/components/motion-button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ChartOfAccount, AccountType } from "@/lib/coa";
@@ -59,28 +60,28 @@ export function ChartOfAccountsClient({ initialData }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Chart of Accounts</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Chart of Accounts</h1>
         {!showForm && (
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>+ Tambah Akun</Button>
+          <MotionButton size="sm" onClick={() => { resetForm(); setShowForm(true); }}>+ Tambah Akun</MotionButton>
         )}
       </div>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-md border p-4 space-y-3 max-w-lg">
           <h2 className="font-semibold">{editItem ? "Edit Akun" : "Tambah Akun"}</h2>
-          {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
+          {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label htmlFor="code" className="text-sm font-medium">Kode</label>
               <input id="code" value={code} onChange={(e) => setCode(e.target.value)}
                 className="w-full rounded-md border px-3 py-2 text-sm" required />
-              {errors.code && <p className="text-xs text-red-600">{errors.code}</p>}
+              {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
             </div>
             <div className="space-y-1">
               <label htmlFor="name" className="text-sm font-medium">Nama</label>
               <input id="name" value={name} onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-md border px-3 py-2 text-sm" required />
-              {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
+              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             </div>
           </div>
           <div className="space-y-1">
@@ -101,7 +102,7 @@ export function ChartOfAccountsClient({ initialData }: Props) {
         </form>
       )}
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

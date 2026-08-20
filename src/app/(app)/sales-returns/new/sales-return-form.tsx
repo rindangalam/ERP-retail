@@ -65,7 +65,7 @@ export function SalesReturnForm({ invoices }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-      {errors._form && <p className="text-sm text-red-600">{errors._form}</p>}
+      {errors._form && <p className="text-sm text-destructive">{errors._form}</p>}
 
       <div className="space-y-1">
         <label htmlFor="invoice" className="text-sm font-medium">Invoice</label>
@@ -82,18 +82,18 @@ export function SalesReturnForm({ invoices }: Props) {
             </option>
           ))}
         </select>
-        {errors.sales_invoice_id && <p className="text-xs text-red-600">{errors.sales_invoice_id}</p>}
+        {errors.sales_invoice_id && <p className="text-xs text-destructive">{errors.sales_invoice_id}</p>}
       </div>
 
       <div className="space-y-1">
         <label htmlFor="return_date" className="text-sm font-medium">Tanggal Retur</label>
         <input id="return_date" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)}
           className="w-full rounded-md border px-3 py-2 text-sm" required />
-        {errors.return_date && <p className="text-xs text-red-600">{errors.return_date}</p>}
+        {errors.return_date && <p className="text-xs text-destructive">{errors.return_date}</p>}
       </div>
 
       {selectedInvoice && items.length > 0 && (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-lg border border-border bg-card shadow-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
@@ -123,7 +123,7 @@ export function SalesReturnForm({ invoices }: Props) {
           </table>
         </div>
       )}
-      {errors.items && <p className="text-xs text-red-600">{errors.items}</p>}
+      {errors.items && <p className="text-xs text-destructive">{errors.items}</p>}
 
       <div className="space-y-1">
         <label htmlFor="notes" className="text-sm font-medium">Catatan</label>
