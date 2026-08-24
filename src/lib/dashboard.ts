@@ -50,7 +50,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // Product count + stock value
   const products = await listProducts();
   const totalProducts = products.length;
-  const totalStockValue = products.reduce((s, p) => s + (Number(p.current_stock || 0) * Number(p.purchase_price || 0)), 0);
+  const totalStockValue = products.reduce((s, p) => s + (Number(p.current_stock || 0) * Number(p.cost_price || 0)), 0);
   const lowStockCount = products.filter((p) => Number(p.current_stock) < Number(p.min_stock)).length;
   const lowStock = products
     .filter((p) => Number(p.current_stock) < Number(p.min_stock))

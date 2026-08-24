@@ -224,21 +224,26 @@ export async function getIncomeStatement(fromDate: string, toDate: string): Prom
 
 function classifyCashFlow(sourceType: string): "operating" | "investing" | "financing" {
   switch (sourceType) {
-    case "sales_payment": case "sales_invoice": case "purchase_return":
-      return "operating";
-    case "goods_receipt": case "purchase_return_out":
-      return "operating";
-    case "manual": default:
+    case "manual":
+      return "financing";
+    default:
       return "operating";
   }
 }
 
 export async function getCashFlowStatement(fromDate: string, toDate: string): Promise<CashFlowData> {
   const db = adminDatabases();
+  const coaResult = await db.listDocuments(DATABASE_ID, "chart_of_accounts", [
+    Query.equal("code", ["1110"]),
+    Query.limit(1),
+  ]);
+  const kasAccountId = coaResult.documents[0]?.$id ?? null;
+
   const entriesResult = await db.listDocuments(DATABASE_ID, "journal_entries", [
     Query.greaterThanEqual("entry_date", fromDate),
     Query.lessThanEqual("entry_date", toDate),
     Query.equal("status", ["posted"]),
+    Query.orderAsc("entry_date"),
     Query.limit(500),
   ]);
   const entries = entriesResult.documents as unknown as JournalEntry[];
@@ -248,13 +253,24 @@ export async function getCashFlowStatement(fromDate: string, toDate: string): Pr
   const financing: CashFlowItem[] = [];
 
   for (const entry of entries) {
+    if (!kasAccountId) break;
+    const linesResult = await db.listDocuments(DATABASE_ID, "journal_entry_lines", [
+      Query.equal("journal_entry_id", [entry.$id]),
+      Query.limit(100),
+    ]);
+    const cashLines = (linesResult.documents as unknown as { account_id: string; debit: number; credit: number }[])
+      .filter((l) => l.account_id === kasAccountId);
+    const amountIn = cashLines.reduce((s, l) => s + Number(l.debit || 0), 0);
+    const amountOut = cashLines.reduce((s, l) => s + Number(l.credit || 0), 0);
+    if (amountIn === 0 && amountOut === 0) continue;
+
     const category = classifyCashFlow(entry.source_type);
     const target = category === "operating" ? operating : category === "investing" ? investing : financing;
     target.push({
       source_type: entry.source_type,
       description: entry.description,
-      amount_in: 0,
-      amount_out: 0,
+      amount_in: amountIn,
+      amount_out: amountOut,
     });
   }
 
