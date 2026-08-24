@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PurchaseOrderWithItems } from "@/lib/purchase-order";
-import { cancelPurchaseOrderAction } from "./actions";
+import { cancelPurchaseOrderAction, sendPurchaseOrderAction } from "./actions";
 
 type PurchasingClientProps = {
   purchaseOrders: PurchaseOrderWithItems[];
@@ -99,12 +99,20 @@ export function PurchasingClient({ purchaseOrders }: PurchasingClientProps) {
                   </TableCell>
                   <TableCell>
                     {po.status === "draft" ? (
-                      <form action={cancelPurchaseOrderAction}>
-                        <input type="hidden" name="id" value={po.$id} />
-                        <Button variant="ghost" size="sm" type="submit" className="text-destructive">
-                          Batalkan
-                        </Button>
-                      </form>
+                      <div className="flex items-center gap-1">
+                        <form action={sendPurchaseOrderAction}>
+                          <input type="hidden" name="id" value={po.$id} />
+                          <Button variant="ghost" size="sm" type="submit">
+                            Kirim
+                          </Button>
+                        </form>
+                        <form action={cancelPurchaseOrderAction}>
+                          <input type="hidden" name="id" value={po.$id} />
+                          <Button variant="ghost" size="sm" type="submit" className="text-destructive">
+                            Batalkan
+                          </Button>
+                        </form>
+                      </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
                     )}

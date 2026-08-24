@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/dal";
-import { cancelPurchaseOrder, createPurchaseOrder } from "@/lib/purchase-order";
+import { cancelPurchaseOrder, createPurchaseOrder, sendPurchaseOrder } from "@/lib/purchase-order";
 import type { PurchaseOrderItemInput } from "@/lib/purchase-order-validation";
 
 export type PurchaseOrderActionState =
@@ -56,6 +56,14 @@ export async function createPurchaseOrderAction(
     errors: result.errors,
     message: hasFieldErrors ? undefined : "Gagal menyimpan purchase order.",
   };
+}
+
+export async function sendPurchaseOrderAction(formData: FormData): Promise<void> {
+  const session = await requireRole(ALLOWED_ROLES);
+  const id = String(formData.get("id") ?? "");
+
+  await sendPurchaseOrder(id, session.userId);
+  revalidatePath("/purchasing");
 }
 
 export async function cancelPurchaseOrderAction(formData: FormData): Promise<void> {

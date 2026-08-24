@@ -215,6 +215,32 @@ export async function createPurchaseOrder(
   }
 }
 
+export async function sendPurchaseOrder(
+  id: string,
+  userId: string
+): Promise<Result<PurchaseOrder>> {
+  try {
+    const existing = await adminDatabases().getDocument(
+      PURCHASE_ORDERS_DATABASE_ID,
+      PURCHASE_ORDERS_COLLECTION,
+      id
+    ) as unknown as PurchaseOrder;
+    if (existing.status !== "draft") {
+      return { ok: false, errors: { _form: "Hanya PO draft yang bisa dikirim." }, code: "not_draft" };
+    }
+    const updated = await adminDatabases().updateDocument({
+      databaseId: PURCHASE_ORDERS_DATABASE_ID,
+      collectionId: PURCHASE_ORDERS_COLLECTION,
+      documentId: id,
+      data: { status: "ordered", updated_by: userId, updated_at: nowIso() },
+    });
+    return { ok: true, data: toPlain(updated as unknown as PurchaseOrder) };
+  } catch (error) {
+    console.error("sendPurchaseOrder failed:", error);
+    return { ok: false, errors: { _form: "Gagal mengirim PO." }, code: "send_po_failed" };
+  }
+}
+
 export async function cancelPurchaseOrder(
   id: string,
   userId: string
