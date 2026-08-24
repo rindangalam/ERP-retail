@@ -219,10 +219,10 @@ async function handlePostGR(databases, payload, res, error) {
 
     const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
     const coa_map = new Map(coa_accounts.documents.map((a) => [a.code, a]));
-    const inv = coa_map.get("1110");
+    const inv = coa_map.get("1210");
     const ap = coa_map.get("2110");
     if (!inv || !ap) {
-      return res.json({ ok: false, errors: { _form: "Akun 1110/2110 tidak ditemukan di COA." } }, 500);
+      return res.json({ ok: false, errors: { _form: "Akun 1210/2110 tidak ditemukan di COA." } }, 500);
     }
     plan.lines[0].account_id = inv.$id;
     plan.lines[1].account_id = ap.$id;
@@ -420,10 +420,10 @@ async function handlePostPR(databases, payload, res, error) {
 
       const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
       const coa_map = new Map(coa_accounts.documents.map((a) => [a.code, a]));
-      const inv = coa_map.get("1110");
+      const inv = coa_map.get("1210");
       const ap = coa_map.get("2110");
       if (!inv || !ap) {
-        return res.json({ ok: false, errors: { _form: "Akun 1110/2110 tidak ditemukan di COA." } }, 500);
+        return res.json({ ok: false, errors: { _form: "Akun 1210/2110 tidak ditemukan di COA." } }, 500);
       }
       plan.lines[0].account_id = ap.$id;
       plan.lines[1].account_id = inv.$id;
@@ -537,10 +537,10 @@ async function handlePostPR(databases, payload, res, error) {
 
     const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
     const coa_map = new Map(coa_accounts.documents.map((a) => [a.code, a]));
-    const inv = coa_map.get("1110");
+    const inv = coa_map.get("1210");
     const ap = coa_map.get("2110");
     if (!inv || !ap) {
-      return res.json({ ok: false, errors: { _form: "Akun 1110/2110 tidak ditemukan di COA." } }, 500);
+      return res.json({ ok: false, errors: { _form: "Akun 1210/2110 tidak ditemukan di COA." } }, 500);
     }
     plan_simple.lines[0].account_id = ap.$id;
     plan_simple.lines[1].account_id = inv.$id;

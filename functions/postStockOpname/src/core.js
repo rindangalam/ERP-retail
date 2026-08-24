@@ -59,7 +59,7 @@ export function buildJournalPlan({ gr_items, po_items_map }) {
   return {
     total_amount: total,
     lines: [
-      { account_code: "1110", account_name: "Persediaan", debit: total, credit: 0, description: "Persediaan dari GR" },
+      { account_code: "1210", account_name: "Persediaan", debit: total, credit: 0, description: "Persediaan dari GR" },
       { account_code: "2110", account_name: "Hutang Usaha", debit: 0, credit: total, description: "Hutang Usaha dari GR" },
     ],
   };
@@ -87,7 +87,7 @@ export function buildPRJournalPlan({ pr_items, po_items_map }) {
     total_amount: total,
     lines: [
       { account_code: "2110", account_name: "Hutang Usaha", debit: total, credit: 0, description: "Hutang Usaha dari Purchase Return" },
-      { account_code: "1110", account_name: "Persediaan", debit: 0, credit: total, description: "Persediaan dari Purchase Return" },
+      { account_code: "1210", account_name: "Persediaan", debit: 0, credit: total, description: "Persediaan dari Purchase Return" },
     ],
   };
 }
