@@ -22,32 +22,76 @@ const STORAGE_KEY = "erp-appearance";
 
 const defaults: Appearance = { theme: "system", density: "comfortable", accent: "emerald" };
 
-function readStored(): Appearance {
-  if (typeof window === "undefined") return defaults;
+function parse(raw: string | null): Appearance {
+  if (!raw) return defaults;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaults;
-    const parsed = JSON.parse(raw) as Partial<Appearance>;
-    return { ...defaults, ...parsed };
+    return { ...defaults, ...(JSON.parse(raw) as Partial<Appearance>) };
   } catch {
     return defaults;
   }
 }
 
+// localStorage-backed store with a cached snapshot so getSnapshot returns a
+// stable object identity between renders (required by useSyncExternalStore).
+let lastRaw: string | null = null;
+let lastSnapshot: Appearance = defaults;
+
+function getSnapshot(): Appearance {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch {}
+  if (raw !== lastRaw) {
+    lastRaw = raw;
+    lastSnapshot = parse(raw);
+  }
+  return lastSnapshot;
+}
+
+function getServerSnapshot(): Appearance {
+  return defaults;
+}
+
+const listeners = new Set<() => void>();
+
+function subscribe(callback: () => void): () => void {
+  listeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function writeAppearance(next: Appearance): void {
+  const raw = JSON.stringify(next);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, raw);
+  } catch {}
+  lastRaw = raw;
+  lastSnapshot = next;
+  listeners.forEach((listener) => listener());
+}
+
+function subscribeSystemDark(callback: () => void): () => void {
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+
+function getSystemDark(): boolean {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function getSystemDarkServer(): boolean {
+  return false;
+}
+
 const AppearanceContext = React.createContext<AppearanceContextValue | null>(null);
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
-  const [appearance, setAppearance] = React.useState<Appearance>(readStored);
-  const [systemDark, setSystemDark] = React.useState(
-    () => typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
-
-  React.useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const appearance = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const systemDark = React.useSyncExternalStore(subscribeSystemDark, getSystemDark, getSystemDarkServer);
 
   const resolved = appearance.theme === "system" ? (systemDark ? "dark" : "light") : appearance.theme;
 
@@ -57,17 +101,14 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
     el.dataset.density = appearance.density;
     el.dataset.accent = appearance.accent;
     el.style.colorScheme = resolved;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance));
-    } catch {}
   }, [resolved, appearance]);
 
   const value = React.useMemo<AppearanceContextValue>(
     () => ({
       ...appearance,
-      setTheme: (theme) => setAppearance((a) => ({ ...a, theme })),
-      setDensity: (density) => setAppearance((a) => ({ ...a, density })),
-      setAccent: (accent) => setAppearance((a) => ({ ...a, accent })),
+      setTheme: (theme) => writeAppearance({ ...getSnapshot(), theme }),
+      setDensity: (density) => writeAppearance({ ...getSnapshot(), density }),
+      setAccent: (accent) => writeAppearance({ ...getSnapshot(), accent }),
     }),
     [appearance]
   );
