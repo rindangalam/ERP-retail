@@ -10,7 +10,7 @@
 
 ---
 
-## 📋 Overview
+## Overview
 
 **ERP Retail** is an internal ERP system designed for single-location retail/trading businesses. It provides a **single source of truth** for stock, transactions, and financial data — eliminating manual double-entry and ensuring real-time synchronization across all modules.
 
@@ -24,35 +24,35 @@ One transaction automatically updates stock and accounting journals through back
 
 ---
 
-## ✨ Features
+## Features
 
 ### Core Modules
 
-#### 🏪 **Inventory Management**
+#### **Inventory Management**
 - Master product data (SKU, category, unit, min stock, pricing)
 - Automatic stock movements from purchases and sales
 - Stock opname (physical count) with variance detection
 - Low stock alerts
 
-#### 📦 **Purchasing**
+#### **Purchasing**
 - Supplier management
 - Purchase orders (PO) with approval workflow
 - Goods receipt posting (auto-updates stock)
 - Purchase returns
 
-#### 💰 **Sales**
+#### **Sales**
 - Customer management
 - Sales orders & invoicing
 - Automatic stock reduction on invoice posting
 - Sales returns
 
-#### 💵 **Finance & Accounting**
+#### **Finance & Accounting**
 - Chart of Accounts (COA) management
 - Automatic journal entries from transactions
 - Cash & bank account tracking
 - Real-time Balance Sheet & Profit/Loss reports
 
-#### 👥 **HR & Payroll**
+#### **HR & Payroll**
 - Employee master data
 - Attendance tracking
 - Payroll processing
@@ -65,7 +65,7 @@ One transaction automatically updates stock and accounting journals through back
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -78,7 +78,7 @@ One transaction automatically updates stock and accounting journals through back
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js 20+ and npm
@@ -119,39 +119,39 @@ One transaction automatically updates stock and accounting journals through back
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 erp-retail/
-├── src/
-│   ├── app/
-│   │   ├── (app)/              # Protected routes (main ERP modules)
-│   │   │   ├── cash-bank/      # Cash & bank transactions
-│   │   │   ├── categories/     # Product categories
-│   │   │   ├── chart-of-accounts/
-│   │   │   ├── customers/
-│   │   │   ├── dashboard/
-│   │   │   ├── employees/
-│   │   │   ├── inventory/
-│   │   │   ├── payroll/
-│   │   │   ├── products/
-│   │   │   ├── purchases/
-│   │   │   ├── sales/
-│   │   │   └── suppliers/
-│   │   ├── auth/               # Authentication pages
-│   │   └── layout.tsx
-│   ├── components/             # Reusable UI components
-│   └── lib/                    # Utilities & helpers
-├── functions/                  # Appwrite serverless functions
-├── scripts/                    # Database setup & migration scripts
-├── skema-database-erp.md       # Database schema & permissions
-├── prd-erp-retail.md           # Product Requirements Document
-└── sprint-backlog-erp.md       # Development backlog
+ src/
+    app/
+       (app)/              # Protected routes (main ERP modules)
+          cash-bank/      # Cash & bank transactions
+          categories/     # Product categories
+          chart-of-accounts/
+          customers/
+          dashboard/
+          employees/
+          inventory/
+          payroll/
+          products/
+          purchases/
+          sales/
+          suppliers/
+       auth/               # Authentication pages
+       layout.tsx
+    components/             # Reusable UI components
+    lib/                    # Utilities & helpers
+ functions/                  # Appwrite serverless functions
+ scripts/                    # Database setup & migration scripts
+ skema-database-erp.md       # Database schema & permissions
+ prd-erp-retail.md           # Product Requirements Document
+ sprint-backlog-erp.md       # Development backlog
 ```
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - **[PRD (Product Requirements Document)](prd-erp-retail.md)** — Functional requirements, user roles, and success metrics
 - **[Database Schema](skema-database-erp.md)** — Complete database structure and permission matrix
@@ -160,9 +160,9 @@ erp-retail/
 
 ---
 
-## 🎯 Roadmap
+## Roadmap
 
-### ✅ MVP (In Progress)
+### MVP (In Progress)
 - [x] Authentication & role-based access
 - [x] Master data (Products, Customers, Suppliers, Employees, COA)
 - [x] Basic inventory movements
@@ -172,7 +172,7 @@ erp-retail/
 - [ ] Financial reports (Balance Sheet, P&L)
 - [ ] Payroll processing
 
-### 🔮 Future Enhancements (Out of Scope for MVP)
+### Future Enhancements (Out of Scope for MVP)
 - Multi-branch / multi-warehouse support
 - Manufacturing & Bill of Materials (BOM)
 - Tax integration (e-Faktur, e-Bupot)
@@ -201,7 +201,7 @@ npm run lint     # Run ESLint
 
 ---
 
-## 🔐 Security
+## Security
 
 - **Role-based permissions** enforced at database level (Appwrite permissions)
 - **JWT authentication** with secure session management
@@ -216,20 +216,20 @@ This is an internal project. For feature requests or bug reports, contact the de
 
 ---
 
-## 📄 License
+## License
 
 Proprietary - Internal use only
 
 ---
 
-## 👤 Author
+## Author
 
 **Rindang Alam Nur Muhammad**  
 GitHub: [@rindangalam](https://github.com/rindangalam)
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Built with:
 - [Next.js](https://nextjs.org/) - React framework
