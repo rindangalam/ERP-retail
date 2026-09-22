@@ -10,6 +10,8 @@ import {
   validatePostPRInput,
   buildPRJournalPlan,
   determinePOStatusAfterReturn,
+  validateVariantsStrict,
+  isDuplicateForVariant,
 } from "./core.js";
 
 const DATABASE_ID = process.env.ERP_DATABASE_ID || "erp";
@@ -92,16 +94,13 @@ async function handlePostOpname(databases, payload, res, error) {
       return res.json({ ok: false, errors: { _form: "Tidak ada selisih yang perlu disesuaikan." } }, 400);
     }
 
-    // Variant existence check — sebelum write apa pun (atomic: gagal di satu = seluruh posting gagal).
-    // Kepemilikan varian sudah dicek di buildAdjustments via variantMap.
-    for (const adj of adjustments) {
-      const vid = adj.product_variant_id ?? null;
-      if (vid && !variantMap.get(vid)) {
-        return res.json(
-          { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: adj.product_id } },
-          404
-        );
-      }
+    // Unifikasi: eksistensi + kepemilikan via validateVariantsStrict SEBELUM
+    // write apa pun (atomic). Kepemilikan juga dicek di buildAdjustments
+    // (per-item 400); di sini strict check menghasilkan shape handler
+    // {_form, product_id} + status 404/400 identik dengan perilaku lama.
+    {
+      const variantGuard = validateVariantsStrict(adjustments, variantMap);
+      if (variantGuard) return res.json({ ok: false, errors: variantGuard.errors }, variantGuard.status);
     }
 
     const now = new Date().toISOString();
@@ -117,9 +116,8 @@ async function handlePostOpname(databases, payload, res, error) {
         Query.equal("source_id", [stock_opname_id]),
         Query.limit(1),
       ]);
-      const isDuplicate = variantId != null
-        ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
-        : existing.documents.length > 0;
+      // Unifikasi duplikat per-varian (sama vs beda varian, null = legasi).
+      const isDuplicate = isDuplicateForVariant(existing.documents, variantId);
       if (isDuplicate) {
         updatedProducts.push({ product_id: adj.product_id, duplicate: true });
         continue;
@@ -273,30 +271,17 @@ async function handlePostGR(databases, payload, res, error) {
     }
 
     // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian).
-    // Validasi eksistensi + kepemilikan SEBELUM write pertama (atomic),
-    // pola sama dengan opname & sales-return.
+    // Unifikasi: eksistensi + kepemilikan via validateVariantsStrict SEBELUM
+    // write pertama (atomic), pola sama dengan opname & sales-return.
     const grVariantIds = [...new Set(gr_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
     const grVariantMap = new Map();
     for (const vid of grVariantIds) {
       const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
       if (v) grVariantMap.set(vid, v);
     }
-    for (const gi of gr_items) {
-      const vid = gi.product_variant_id ?? null;
-      if (vid) {
-        if (!grVariantMap.get(vid)) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: gi.product_id } },
-            404
-          );
-        }
-        if (grVariantMap.get(vid).product_id !== gi.product_id) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${vid} bukan milik produk ${gi.product_id}.` } },
-            400
-          );
-        }
-      }
+    {
+      const variantGuard = validateVariantsStrict(gr_items, grVariantMap);
+      if (variantGuard) return res.json({ ok: false, errors: variantGuard.errors }, variantGuard.status);
     }
 
     const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
@@ -323,10 +308,8 @@ async function handlePostGR(databases, payload, res, error) {
         Query.equal("source_id", [goods_receipt_id]),
         Query.limit(1),
       ]);
-      const isDuplicate = variantId != null
-        ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
-        : existing.documents.length > 0;
-      if (isDuplicate) continue;
+      // Unifikasi duplikat per-varian.
+      if (isDuplicateForVariant(existing.documents, variantId)) continue;
 
       const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", gi.product_id);
       const newStock = currentStockOf(movements) + qty;
@@ -453,29 +436,17 @@ async function handlePostPR(databases, payload, res, error) {
     }
 
     // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian).
-    // Validasi eksistensi + kepemilikan SEBELUM write pertama (atomic).
+    // Unifikasi: eksistensi + kepemilikan via validateVariantsStrict SEBELUM
+    // write pertama (atomic) — mencakup jalur ber-PO maupun tanpa PO.
     const prVariantIds = [...new Set(pr_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
     const prVariantMap = new Map();
     for (const vid of prVariantIds) {
       const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
       if (v) prVariantMap.set(vid, v);
     }
-    for (const ri of pr_items) {
-      const vid = ri.product_variant_id ?? null;
-      if (vid) {
-        if (!prVariantMap.get(vid)) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: ri.product_id } },
-            404
-          );
-        }
-        if (prVariantMap.get(vid).product_id !== ri.product_id) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${vid} bukan milik produk ${ri.product_id}.` } },
-            400
-          );
-        }
-      }
+    {
+      const variantGuard = validateVariantsStrict(pr_items, prVariantMap);
+      if (variantGuard) return res.json({ ok: false, errors: variantGuard.errors }, variantGuard.status);
     }
 
     // PO status recalculation
@@ -570,10 +541,8 @@ async function handlePostPR(databases, payload, res, error) {
           Query.equal("source_id", [purchase_return_id]),
           Query.limit(1),
         ]);
-        const isDuplicate = variantId != null
-          ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
-          : existing.documents.length > 0;
-        if (isDuplicate) continue;
+        // Unifikasi duplikat per-varian.
+        if (isDuplicateForVariant(existing.documents, variantId)) continue;
 
         const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", ri.product_id);
         const newStock = currentStockOf(movements) + qty;
@@ -702,10 +671,8 @@ async function handlePostPR(databases, payload, res, error) {
         Query.equal("source_id", [purchase_return_id]),
         Query.limit(1),
       ]);
-      const isDuplicate = variantId != null
-        ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
-        : existing.documents.length > 0;
-      if (isDuplicate) continue;
+      // Unifikasi duplikat per-varian (jalur tanpa PO).
+      if (isDuplicateForVariant(existing.documents, variantId)) continue;
 
       const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", ri.product_id);
       const newStock = currentStockOf(movements) + qty;
@@ -835,22 +802,13 @@ async function handlePostSalesInvoice(databases, payload, res, error) {
       item._variant = vid ? variantMap.get(vid) ?? null : null;
     }
 
-    // Variant existence + ownership check — sebelum write apa pun (atomic: gagal di satu = seluruh posting gagal)
-    for (const item of si_items) {
-      if (item._variant_id) {
-        if (!item._variant) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${item._variant_id} tidak ditemukan.`, product_id: item.product_id } },
-            404
-          );
-        }
-        if (item._variant.product_id !== item.product_id) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${item._variant_id} bukan milik produk ${item.product_id}.` } },
-            400
-          );
-        }
-      }
+    // Unifikasi: eksistensi + kepemilikan via validateVariantsStrict SEBELUM
+    // write apa pun (atomic). Attach _variant di atas dipertahankan untuk cek
+    // stok + payload movement. Duplikat SI sengaja non-varian-aware (legasi:
+    // existing.documents.length > 0) — dipertahankan, lihat bawah.
+    {
+      const variantGuard = validateVariantsStrict(si_items, variantMap);
+      if (variantGuard) return res.json({ ok: false, errors: variantGuard.errors }, variantGuard.status);
     }
 
     // Stock sufficiency check (unless stock_override)
@@ -910,6 +868,9 @@ async function handlePostSalesInvoice(databases, payload, res, error) {
     const updatedProducts = [];
 
     // Stock movements (negative for sales)
+    // DIVERGENSI TERDOKUMENTASI: cek duplikat SI non-varian-aware (legasi) —
+    // sengaja TIDAK memakai isDuplicateForVariant agar perilaku identik
+    // (per-varian akan mengubah semantik skip untuk multi-varian satu produk).
     for (const item of si_items) {
       const existing = await databases.listDocuments(DATABASE_ID, MOVEMENTS_COLLECTION, [
         Query.equal("product_id", [item.product_id]),
@@ -1058,29 +1019,18 @@ async function handlePostSalesReturn(databases, payload, res, error) {
     }
 
     // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian).
-    // Validasi eksistensi + kepemilikan SEBELUM write pertama (atomic).
+    // Unifikasi: eksistensi + kepemilikan via validateVariantsStrict SEBELUM
+    // write pertama (atomic). SR sengaja TANPA cek duplikat (selalu buat
+    // movement restore) — dipertahankan apa adanya.
     const srVariantIds = [...new Set(sr_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
     const srVariantMap = new Map();
     for (const vid of srVariantIds) {
       const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
       if (v) srVariantMap.set(vid, v);
     }
-    for (const ri of sr_items) {
-      const vid = ri.product_variant_id ?? null;
-      if (vid) {
-        if (!srVariantMap.get(vid)) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: ri.product_id } },
-            404
-          );
-        }
-        if (srVariantMap.get(vid).product_id !== ri.product_id) {
-          return res.json(
-            { ok: false, errors: { _form: `Varian ${vid} bukan milik produk ${ri.product_id}.` } },
-            400
-          );
-        }
-      }
+    {
+      const variantGuard = validateVariantsStrict(sr_items, srVariantMap);
+      if (variantGuard) return res.json({ ok: false, errors: variantGuard.errors }, variantGuard.status);
     }
 
     const si = await databases.getDocument(DATABASE_ID, SI_COLLECTION, sr.sales_invoice_id);

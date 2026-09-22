@@ -18,8 +18,6 @@ export function validatePostOpnameInput(payload) {
 export function buildAdjustments(items, variantInfos = new Map()) {
   const adjustments = [];
   const errors = {};
-  const lookupVariant = (id) =>
-    variantInfos instanceof Map ? variantInfos.get(id) : variantInfos[id];
   items.forEach((item, i) => {
     const prefix = `items.${i}`;
     if (!item.product_id) {
@@ -28,9 +26,12 @@ export function buildAdjustments(items, variantInfos = new Map()) {
     }
     const variantId = item.product_variant_id ?? null;
     if (variantId != null) {
-      const info = lookupVariant(variantId);
-      if (info && info.product_id !== item.product_id) {
-        errors[`${prefix}.product_variant_id`] = `Varian ${variantId} bukan milik produk ${item.product_id}.`;
+      // Unifikasi: kepemilikan via getVariantGuardError lenient (tak dikenal = skip).
+      const guard = getVariantGuardError(variantId, item.product_id, variantInfos, {
+        strictExistence: false,
+      });
+      if (guard) {
+        errors[`${prefix}.product_variant_id`] = guard.message;
         return;
       }
     }
@@ -158,6 +159,65 @@ export function determinePOStatus(cumulative, po_items) {
   return "partial";
 }
 
+// ─── Unifikasi validasi varian — SATU sumber kebenaran ───
+// KEPUTUSAN: handler (src/index.js) memanggil SATU fungsi validasi terpusat
+// di core.js (validateVariantsStrict + getVariantGuardError +
+// isDuplicateForVariant); handler hanya orkestrasi I/O Appwrite.
+// ALASAN (risiko terkecil): logika murni tetap di core (mudah diuji unit),
+// pesan/status identik (404 {_form, product_id}, 400 kepemilikan), urutan
+// validasi-sebelum-write dan backward-compat null dipertahankan, agregat
+// 2 level tetap via determinePOStatus*. Builder lenient
+// (strictExistence:false — info tak dikenal = skip, preservasi perilaku lama)
+// vs handler strict (true — map sudah lengkap dari DB, tak dikenal = 404).
+// Duplikat varian-aware disatukan via isDuplicateForVariant untuk
+// opname/GR/PR; SI sengaja non-varian-aware (legasi) dan SR tanpa cek
+// duplikat — keduanya dipertahankan apa adanya, lihat komentar di index.js.
+export function getVariantGuardError(variantId, productId, variantMap, options = {}) {
+  const { strictExistence = true } = options;
+  const vid = variantId ?? null;
+  if (vid == null) return null;
+  const lookup =
+    variantMap instanceof Map ? variantMap.get(vid) : variantMap?.[vid];
+  if (!lookup) {
+    if (!strictExistence) return null;
+    return { status: 404, message: `Varian ${vid} tidak ditemukan.` };
+  }
+  if (lookup.product_id !== productId) {
+    return { status: 400, message: `Varian ${vid} bukan milik produk ${productId}.` };
+  }
+  return null;
+}
+
+// Validasi ketat handler: 404 tak dikenal / 400 asing, SEBELUM write.
+// items: [{ product_id, product_variant_id?, _variant_id? }] — _variant_id
+// didukung untuk invoice yang menempel item._variant_id. Return null bila
+// lolos, atau { status, errors:{ _form, product_id } } identik dengan
+// perilaku handler lama (urutan item pertama yang gagal menang).
+export function validateVariantsStrict(items, variantMap) {
+  for (const item of items) {
+    const vid = item.product_variant_id ?? item._variant_id ?? null;
+    if (vid == null) continue;
+    const err = getVariantGuardError(vid, item.product_id, variantMap, {
+      strictExistence: true,
+    });
+    if (err) {
+      return { status: err.status, errors: { _form: err.message, product_id: item.product_id } };
+    }
+  }
+  return null;
+}
+
+// Duplikat per-varian (opname/GR/PR): varian sama = duplikat, varian beda =
+// bukan duplikat, tanpa varian = length>0 (legasi). existingDocuments =
+// array dokumen movement (existing.documents).
+export function isDuplicateForVariant(existingDocuments, variantId) {
+  const docs = existingDocuments ?? [];
+  if (variantId != null) {
+    return docs.some((m) => (m.product_variant_id ?? null) === variantId);
+  }
+  return docs.length > 0;
+}
+
 // ─── Variant-aware stock plans (GR / purchase-return / sales-return) ───
 // Pola mengikuti buildSalesInvoiceJournalPlan di core-sales-invoice.js:
 // item boleh membawa `product_variant_id` (NULL = tanpa varian, backward-
@@ -166,9 +226,6 @@ export function determinePOStatus(cumulative, po_items) {
 // biasa). Atomic: ada satu error -> return { errors } tanpa movement.
 // GR/SR = stok masuk (delta positif), PR = stok keluar (delta negatif).
 function buildVariantStockPlan({ doc, items, qtyField, qtyErrorField, movement_type, note, created_by, variantInfos }) {
-  const lookupVariant = (id) =>
-    variantInfos instanceof Map ? variantInfos.get(id) : variantInfos[id];
-
   const now = new Date().toISOString();
   const errors = {};
   const stock_movements = [];
@@ -184,9 +241,12 @@ function buildVariantStockPlan({ doc, items, qtyField, qtyErrorField, movement_t
     }
     const variantId = item.product_variant_id ?? null;
     if (variantId != null) {
-      const info = lookupVariant(variantId);
-      if (info && info.product_id !== item.product_id) {
-        errors[`${prefix}.product_variant_id`] = `Varian ${variantId} bukan milik produk ${item.product_id}.`;
+      // Unifikasi: kepemilikan via getVariantGuardError lenient (tak dikenal = skip).
+      const guard = getVariantGuardError(variantId, item.product_id, variantInfos, {
+        strictExistence: false,
+      });
+      if (guard) {
+        errors[`${prefix}.product_variant_id`] = guard.message;
         return;
       }
     }
