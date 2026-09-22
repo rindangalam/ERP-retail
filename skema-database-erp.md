@@ -48,6 +48,8 @@ Field `source_type` + `source_id` dipakai untuk melacak asal sebuah `stock_movem
 | `payroll_run` | dokumen `payroll_runs` |
 | `manual_transaction` | dokumen `cash_bank_transactions` |
 
+Catatan: varian dibawa di field `product_variant_id`; `movement_type`/`source_type` tidak berubah.
+
 ---
 
 ## 2. Modul Core
@@ -122,6 +124,7 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `product_id` | string | FK → `products.$id` |
+| `product_variant_id` | string | FK opsional → `product_variants.$id`, NULL = produk tanpa varian |
 | `movement_type` | string enum | `goods_receipt` · `sales_invoice` · `purchase_return` · `sales_return` · `stock_opname` · `manual_adjustment` |
 | `quantity_delta` | number | **Bertanda**: positif = stok masuk, negatif = stok keluar |
 | `source_type` | string | Lihat §1.4 |
@@ -155,6 +158,7 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 |---|---|---|
 | `stock_opname_id` | string | FK → `stock_opnames.$id` |
 | `product_id` | string | FK → `products.$id` |
+| `product_variant_id` | string | FK opsional → `product_variants.$id`, NULL = produk tanpa varian |
 | `system_qty` | number | Stok menurut sistem saat opname dibuat |
 | `actual_qty` | number | Hasil hitung fisik |
 | `difference` | number | `actual_qty - system_qty` (selisih positif/negatif) |
@@ -163,6 +167,24 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 **Index**: `stock_opname_id`, `product_id`.
 
 **Permission**: sama dengan `stock_opnames`.
+
+### 3.6 `product_variants` — varian size/warna (butik fashion)
+
+| Field | Tipe | Keterangan |
+|---|---|---|
+| `product_id` | string | FK → `products.$id` |
+| `size` | string | Misal `S` · `M` · `L` · `XL` · `All Size` |
+| `color` | string | Misal `Hitam`, `Cream`; kosong = satu warna |
+| `sku` | string | SKU varian, unik (contoh `BLS-001-M-HITAM`) |
+| `barcode` | string | Opsional, unik bila diisi |
+| `sell_price` | number | Override harga jual; NULL = ikut produk |
+| `min_stock` | number | Ambang alert per varian |
+| `current_stock` | number | Denormalisasi, hanya ditulis Function |
+| `is_active` | boolean | |
+| `created_by` / `created_at` / `updated_by` / `updated_at` | | Audit |
+
+**Index**: `sku` (unique), `barcode` (unique), `product_id`.
+**Permission**: Read: `admin`, `warehouse`, `purchasing`, `sales`, `finance`. Write: `admin`, `warehouse`.
 
 ---
 
@@ -240,6 +262,7 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 | `goods_receipt_id` | string | FK → `goods_receipts.$id` |
 | `purchase_order_item_id` | string | FK → `purchase_order_items.$id` |
 | `product_id` | string | FK → `products.$id` |
+| `product_variant_id` | string | FK opsional → `product_variants.$id`, NULL = produk tanpa varian |
 | `quantity_received` | number | Tidak boleh melebihi qty PO (validasi di Function) |
 
 **Index**: `goods_receipt_id`, `purchase_order_item_id`.
@@ -267,6 +290,7 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 |---|---|---|
 | `purchase_return_id` | string | FK → `purchase_returns.$id` |
 | `product_id` | string | FK → `products.$id` |
+| `product_variant_id` | string | FK opsional → `product_variants.$id`, NULL = produk tanpa varian |
 | `quantity` | number | Qty retur |
 | `unit_price` | number | Harga satuan saat retur |
 
@@ -358,6 +382,7 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 | `sales_invoice_id` | string | FK → `sales_invoices.$id` |
 | `sales_order_item_id` | string | FK opsional |
 | `product_id` | string | FK → `products.$id` |
+| `product_variant_id` | string | FK opsional → `product_variants.$id`, NULL = produk tanpa varian |
 | `quantity` | number | |
 | `unit_price` | number | |
 | `line_total` | number | |
@@ -406,6 +431,7 @@ Profil setiap user Auth. Membantu UI & Server Action menentukan role user tanpa 
 | `sales_return_id` | string | FK → `sales_returns.$id` |
 | `sales_invoice_item_id` | string | FK opsional |
 | `product_id` | string | FK → `products.$id` |
+| `product_variant_id` | string | FK opsional → `product_variants.$id`, NULL = produk tanpa varian |
 | `quantity` | number | |
 | `unit_price` | number | |
 

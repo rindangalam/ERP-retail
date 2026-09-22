@@ -300,6 +300,16 @@ Skenario: tambah model + 3 varian → terima barang (GR) → jual via `/pos` tun
 git add -A && git commit -m "chore: hardening UAT butik fashion"
 ```
 
+### Task 8: Rantai varian utuh — GR/opname/retur sadar-varian (tambahan pasca final-review NO-GO)
+
+Temuan final review: stok varian hanya bisa keluar (invoice) tapi tidak bisa masuk (GR/opname) dan retur tidak mengembalikan stok varian — rantai putus, UAT live pasti gagal. Task 8 menutupnya dalam 3 sub-task:
+
+- **8a — Function + skema item**: `product_variant_id` opsional ditambah ke `goods_receipt_items`, `stock_opname_items`, `sales_return_items`, `purchase_return_items` (skema-database-erp.md, satu commit dengan kode); handler GR/opname/sales-return/purchase-return di `functions/postStockOpname` menulis movement + update 2 level stok per varian, atomic, TDD (`test/variant-gr-opname-return.test.mjs`); sekalian betulkan tipe `ProductVariant` (tambah `updated_by/at` opsional).
+- **8b — UI**: form Goods Receipt, Stock Opname, Sales Return, Purchase Return dapat pemilih varian per baris (lib validasi + actions meneruskan; pola Task 3/5).
+- **8c — Dokumen + verifikasi**: selaraskan `docs/seed-butik-fashion.md` + `docs/uat-butik-fashion.md` dengan kemampuan aktual; verifikasi rantai penuh (masuk→jual→retur) + re-run seluruh test; final review ulang sebelum merge.
+
+Tetap di luar scope: SO internal tanpa rincian varian, unifikasi dual-implementasi builder vs index (dicatat follow-up).
+
 ## Scope yang SENGAJA tidak dikerjakan
 
 - Neraca/Arus Kas tetap untuk `admin`/`finance` (tidak dihapus, hanya tidak dipromosikan ke kasir).
