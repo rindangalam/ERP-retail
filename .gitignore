@@ -42,3 +42,6 @@ next-env.d.ts
 
 # temporary
 .tmp-deploy/
+
+# git worktrees (isolated workspaces)
+.worktrees/
