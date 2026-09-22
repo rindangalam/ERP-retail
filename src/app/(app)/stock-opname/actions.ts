@@ -96,10 +96,12 @@ export async function addOpnameItemAction(
   formData: FormData
 ): Promise<OpnameActionState> {
   const session = await requireRole(ALLOWED_ROLES);
+  const rawVariantId = String(formData.get("product_variant_id") ?? "").trim();
   const result = await addOpnameItem(
     {
       stock_opname_id: String(formData.get("stock_opname_id") ?? ""),
       product_id: String(formData.get("product_id") ?? ""),
+      product_variant_id: rawVariantId || null,
       actual_qty: toNumber(formData.get("actual_qty")),
       note: String(formData.get("note") ?? ""),
     },

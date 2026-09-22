@@ -4,6 +4,7 @@ export type ValidationResult =
 
 export type PurchaseReturnItemInput = {
   product_id: string;
+  product_variant_id?: string | null;
   quantity: number;
   unit_price: number;
 };
@@ -38,11 +39,19 @@ export function validatePurchaseReturnInput(input: PurchaseReturnInput): Validat
         errors.items = "Ada item tanpa produk.";
         break;
       }
-      if (seen.has(item.product_id)) {
+      const variantId = item.product_variant_id ?? null;
+      if (variantId !== null && variantId !== undefined) {
+        if (typeof variantId !== "string" || variantId.trim() === "") {
+          errors.items = "Varian produk tidak valid.";
+          break;
+        }
+      }
+      const dupKey = `${item.product_id}__${variantId?.trim() ?? ""}`;
+      if (seen.has(dupKey)) {
         errors.items = "Produk yang sama tidak boleh muncul dua kali.";
         break;
       }
-      seen.add(item.product_id);
+      seen.add(dupKey);
       if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
         errors.items = "Qty retur harus lebih dari 0.";
         break;

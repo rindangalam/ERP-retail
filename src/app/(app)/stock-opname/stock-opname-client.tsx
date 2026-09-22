@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import type { Product } from "@/lib/inventory";
 import type { Opname, OpnameItem } from "@/lib/opname";
+import type { ProductVariant } from "@/lib/variants";
 import {
   addOpnameItemAction,
   cancelOpnameAction,
@@ -31,6 +32,7 @@ type Props = {
   opnames: Opname[];
   items: OpnameItem[];
   products: Product[];
+  variantsByProduct: Record<string, ProductVariant[]>;
 };
 
 const SELECT_CLASS =
@@ -68,7 +70,17 @@ function TodayInput(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function StockOpnameClient({ opnames, items, products }: Props) {
+// Label dropdown varian: SIZE · Warna · SKU · stok (pola pos-client).
+function variantLabel(v: ProductVariant): string {
+  const parts = [v.size?.trim(), v.color?.trim()].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : v.sku;
+}
+
+function variantOptionLabel(v: ProductVariant): string {
+  return `${variantLabel(v)} · ${v.sku} · stok ${formatNumber(Number(v.current_stock))}`;
+}
+
+export function StockOpnameClient({ opnames, items, products, variantsByProduct }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const itemsByOpname = useMemo(() => {
@@ -89,6 +101,7 @@ export function StockOpnameClient({ opnames, items, products }: Props) {
         opname={selected}
         items={itemsByOpname.get(selected.$id) ?? []}
         products={products}
+        variantsByProduct={variantsByProduct}
         onBack={() => setSelectedId(null)}
       />
     );
@@ -212,11 +225,13 @@ function OpnameDetail({
   opname,
   items,
   products,
+  variantsByProduct,
   onBack,
 }: {
   opname: Opname;
   items: OpnameItem[];
   products: Product[];
+  variantsByProduct: Record<string, ProductVariant[]>;
   onBack: () => void;
 }) {
   const isDraft = opname.status === "draft";
@@ -226,6 +241,22 @@ function OpnameDetail({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.$id, p])), [products]);
+  const variantById = useMemo(() => {
+    const map = new Map<string, ProductVariant>();
+    for (const vs of Object.values(variantsByProduct)) {
+      for (const v of vs) map.set(v.$id, v);
+    }
+    return map;
+  }, [variantsByProduct]);
+
+  function itemLabel(item: OpnameItem): string {
+    const product = productById.get(item.product_id);
+    const base = product ? `${product.sku} — ${product.name}` : item.product_id;
+    const variantId = item.product_variant_id ?? null;
+    if (!variantId) return base;
+    const variant = variantById.get(variantId);
+    return `${base} · ${variant ? variantLabel(variant) : variantId}`;
+  }
 
   return (
     <div className="space-y-4">
@@ -268,12 +299,11 @@ function OpnameDetail({
               </TableRow>
             ) : (
               items.map((item) => {
-                const product = productById.get(item.product_id);
                 return (
                   <ItemRow
                     key={item.$id}
                     item={item}
-                    productLabel={product ? `${product.sku} — ${product.name}` : item.product_id}
+                    productLabel={itemLabel(item)}
                     isDraft={isDraft}
                     editing={editingItemId === item.$id}
                     onEdit={() => setEditingItemId(item.$id)}
@@ -286,7 +316,7 @@ function OpnameDetail({
         </Table>
       </div>
 
-      {isDraft ? <AddItemForm opnameId={opname.$id} products={products} items={items} /> : null}
+      {isDraft ? <AddItemForm opnameId={opname.$id} products={products} items={items} variantsByProduct={variantsByProduct} /> : null}
 
       {isDraft ? (
         <div className="flex items-center gap-3">
@@ -356,29 +386,55 @@ function AddItemForm({
   opnameId,
   products,
   items,
+  variantsByProduct,
 }: {
   opnameId: string;
   products: Product[];
   items: OpnameItem[];
+  variantsByProduct: Record<string, ProductVariant[]>;
 }) {
   const router = useRouter();
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState("");
   const [actualQty, setActualQty] = useState("");
   const [state, formAction, pending] = useActionState(addOpnameItemAction, undefined);
   const submitted = useRef(false);
 
-  const usedProductIds = new Set(items.map((i) => i.product_id));
-  const available = products.filter((p) => p.is_active && !usedProductIds.has(p.$id));
+  // KEPUTUSAN OPNAME LEVEL-VARIAN: baris opname untuk produk bervarian
+  // selalu per varian (system_qty dari current_stock varian, bukan induk).
+  // Produk bervarian tidak boleh diopname di level induk agar posting tidak
+  // double-count dengan stok varian (Function menaikkan agregat induk per
+  // adjustment varian). Produk tanpa varian jalan seperti dulu (null).
+  const usedKeys = new Set(items.map((i) => `${i.product_id}__${i.product_variant_id ?? ""}`));
+  const available = products.filter((p) => {
+    if (!p.is_active) return false;
+    if ((variantsByProduct[p.$id]?.length ?? 0) > 0) return true;
+    return !usedKeys.has(`${p.$id}__`);
+  });
   const selectedProduct = products.find((p) => p.$id === selectedProductId);
-  const systemQty = selectedProduct?.current_stock ?? 0;
+  const productVariants = selectedProductId ? (variantsByProduct[selectedProductId] ?? []) : [];
+  const availableVariants = selectedProduct
+    ? productVariants.filter((v) => !usedKeys.has(`${selectedProduct.$id}__${v.$id}`))
+    : [];
+  const selectedVariant = productVariants.find((v) => v.$id === selectedVariantId) ?? null;
+  const systemQty =
+    productVariants.length > 0
+      ? (selectedVariant?.current_stock ?? 0)
+      : (selectedProduct?.current_stock ?? 0);
   const parsedActual = Number(actualQty);
   const difference = Number.isFinite(parsedActual) ? parsedActual - systemQty : NaN;
+
+  function handleProductChange(productId: string) {
+    setSelectedProductId(productId);
+    setSelectedVariantId("");
+  }
 
   useEffect(() => {
     if (state?.ok && !submitted.current) {
       submitted.current = true;
       router.refresh();
       setSelectedProductId("");
+      setSelectedVariantId("");
       setActualQty("");
       const timer = setTimeout(() => {
         submitted.current = false;
@@ -398,7 +454,7 @@ function AddItemForm({
             name="product_id"
             className={SELECT_CLASS}
             value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
+            onChange={(e) => handleProductChange(e.target.value)}
             required
           >
             <option value="" disabled>Pilih produk</option>
@@ -412,6 +468,29 @@ function AddItemForm({
             <p role="alert" className="text-sm text-destructive">{state.errors.product_id}</p>
           ) : null}
         </div>
+        {productVariants.length > 0 ? (
+          <div className="space-y-2 min-w-56 flex-1">
+            <Label htmlFor="product_variant_id">Varian *</Label>
+            <select
+              id="product_variant_id"
+              name="product_variant_id"
+              className={SELECT_CLASS}
+              value={selectedVariantId}
+              onChange={(e) => setSelectedVariantId(e.target.value)}
+              required
+            >
+              <option value="" disabled>Pilih varian</option>
+              {availableVariants.map((v) => (
+                <option key={v.$id} value={v.$id}>
+                  {variantOptionLabel(v)}
+                </option>
+              ))}
+            </select>
+            {state?.errors?.product_variant_id ? (
+              <p role="alert" className="text-sm text-destructive">{state.errors.product_variant_id}</p>
+            ) : null}
+          </div>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="actual_qty">Qty aktual</Label>
           <Input
@@ -440,6 +519,7 @@ function AddItemForm({
       {selectedProduct ? (
         <p className="text-sm text-muted-foreground">
           Stok sistem: <span className="font-medium">{formatNumber(systemQty)}</span>
+          {selectedVariant ? ` (varian ${variantLabel(selectedVariant)})` : ""}
           {" · "}Selisih:{" "}
           <span className={`font-medium ${difference < 0 ? "text-destructive" : difference > 0 ? "text-positive" : ""}`}>
             {Number.isFinite(difference) ? (difference > 0 ? "+" : "") + formatNumber(difference) : "—"}

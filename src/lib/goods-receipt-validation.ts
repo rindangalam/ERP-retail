@@ -5,6 +5,7 @@ export type ValidationResult =
 export type GoodsReceiptItemInput = {
   purchase_order_item_id: string;
   product_id: string;
+  product_variant_id?: string | null;
   quantity_received: number;
 };
 
@@ -43,6 +44,13 @@ export function validateGoodsReceiptInput(input: GoodsReceiptInput): ValidationR
         break;
       }
       seen.add(item.purchase_order_item_id);
+      const variantId = item.product_variant_id ?? null;
+      if (variantId !== null && variantId !== undefined) {
+        if (typeof variantId !== "string" || variantId.trim() === "") {
+          errors.items = "Varian produk tidak valid.";
+          break;
+        }
+      }
       if (!Number.isFinite(item.quantity_received) || item.quantity_received <= 0) {
         errors.items = "Qty diterima harus lebih dari 0.";
         break;

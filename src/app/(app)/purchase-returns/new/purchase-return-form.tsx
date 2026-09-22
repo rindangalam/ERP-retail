@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +9,31 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { _createPurchaseReturn } from "../actions";
 import type { GRForPR } from "@/lib/purchase-return";
+import type { ProductVariant } from "@/lib/variants";
 
 type Props = {
   grs: GRForPR[];
+  variantsByProduct: Record<string, ProductVariant[]>;
 };
 
-export function PurchaseReturnForm({ grs }: Props) {
+type PRRow = {
+  gr_item_id: string;
+  product_id: string;
+  product_variant_id: string | null;
+  qty: number;
+  unit_price: number;
+  max_qty: number;
+};
+
+// Label dropdown varian: SIZE · Warna · SKU · stok (pola pos-client).
+function variantLabel(v: ProductVariant): string {
+  const parts = [v.size?.trim(), v.color?.trim()].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : v.sku;
+}
+
+// Varian prefill dikunci: label baca-saja via variantLabel + rowVariantText.
+
+export function PurchaseReturnForm({ grs, variantsByProduct }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -25,9 +44,21 @@ export function PurchaseReturnForm({ grs }: Props) {
   const [purchaseOrderId, setPurchaseOrderId] = useState<string>("");
   const [returnDate, setReturnDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<
-    { product_id: string; qty: number; unit_price: number; max_qty: number }[]
-  >([]);
+  const [items, setItems] = useState<PRRow[]>([]);
+
+  const variantById = useMemo(() => {
+    const map = new Map<string, ProductVariant>();
+    for (const vs of Object.values(variantsByProduct)) {
+      for (const v of vs) map.set(v.$id, v);
+    }
+    return map;
+  }, [variantsByProduct]);
+
+  function rowVariantText(item: PRRow): string {
+    if (!item.product_variant_id) return "—";
+    const v = variantById.get(item.product_variant_id);
+    return v ? variantLabel(v) : item.product_variant_id;
+  }
 
   function handleGRChange(grId: string) {
     const gr = grs.find((g) => g.$id === grId);
@@ -38,13 +69,20 @@ export function PurchaseReturnForm({ grs }: Props) {
 
     setItems(
       gr.items.map((item) => ({
+        gr_item_id: item.$id,
         product_id: item.product_id,
+        // Bawa varian dari GR asal; null untuk GR lama tanpa varian.
+        product_variant_id: item.product_variant_id ?? null,
         qty: 0,
         unit_price: item.unit_price,
         max_qty: item.quantity_received,
       }))
     );
   }
+
+  // Varian dikunci mengikuti GR asal (prefill): tidak ada pengubahan via UI.
+  // Bila state inkonsisten (produk bervarian tanpa varian), submit menolak
+  // dengan pesan Bahasa Indonesia di bawah.
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -65,6 +103,14 @@ export function PurchaseReturnForm({ grs }: Props) {
       setFieldErrors({ items: "Minimal satu item harus di-retur." });
       return;
     }
+    // Produk bervarian wajib kirim varian; produk polos kirim null.
+    const missingVariant = filteredItems.some(
+      (item) => (variantsByProduct[item.product_id]?.length ?? 0) > 0 && !item.product_variant_id
+    );
+    if (missingVariant) {
+      setFieldErrors({ items: "Pilih varian untuk tiap produk bervarian." });
+      return;
+    }
 
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -75,6 +121,7 @@ export function PurchaseReturnForm({ grs }: Props) {
       JSON.stringify(
         filteredItems.map((item) => ({
           product_id: item.product_id,
+          product_variant_id: item.product_variant_id ?? null,
           quantity: item.qty,
           unit_price: item.unit_price,
         }))
@@ -144,33 +191,41 @@ export function PurchaseReturnForm({ grs }: Props) {
                 <thead>
                   <tr className="border-b">
                     <th className="p-2 text-left">Produk</th>
+                    <th className="p-2 text-left">Varian</th>
                     <th className="p-2 text-right">Qty Diterima</th>
                     <th className="p-2 text-right">Harga Satuan</th>
                     <th className="p-2 text-right">Qty Retur</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={item.product_id} className="border-b">
-                      <td className="p-2">{item.product_id}</td>
-                      <td className="p-2 text-right">{item.max_qty}</td>
-                      <td className="p-2 text-right">{item.unit_price.toLocaleString("id-ID")}</td>
-                      <td className="p-2 text-right">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={item.max_qty}
-                          value={item.qty}
-                          onChange={(e) => {
-                            const newItems = [...items];
-                            newItems[idx].qty = Number(e.target.value);
-                            setItems(newItems);
-                          }}
-                          className="w-24 text-right ml-auto"
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item, idx) => {
+                    return (
+                      <tr key={item.gr_item_id} className="border-b">
+                        <td className="p-2">{item.product_id}</td>
+                        <td className="p-2">
+                          {/* Prefill: varian dikunci ke nilai GR asal. Produk polos → null/—. */}
+                          <span className="text-muted-foreground">{rowVariantText(item)}</span>
+                          <input type="hidden" value={item.product_variant_id ?? ""} aria-hidden="true" tabIndex={-1} readOnly />
+                        </td>
+                        <td className="p-2 text-right">{item.max_qty}</td>
+                        <td className="p-2 text-right">{item.unit_price.toLocaleString("id-ID")}</td>
+                        <td className="p-2 text-right">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.max_qty}
+                            value={item.qty}
+                            onChange={(e) => {
+                              const newItems = [...items];
+                              newItems[idx].qty = Number(e.target.value);
+                              setItems(newItems);
+                            }}
+                            className="w-24 text-right ml-auto"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               {fieldErrors.items && <p className="text-sm text-destructive">{fieldErrors.items}</p>}

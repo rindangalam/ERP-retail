@@ -3,6 +3,7 @@ import { ID, Permission, Query, Role } from "node-appwrite";
 import { Functions } from "node-appwrite";
 import { getAdminClient, adminDatabases } from "./appwrite-server";
 import { findProductById } from "./inventory";
+import { listVariants } from "./variants";
 import { validateOpnameInput, validateOpnameItemInput } from "./opname-validation";
 
 export const OPN_COLLECTION = "stock_opnames";
@@ -29,6 +30,7 @@ export type Opname = AppwriteDoc & {
 export type OpnameItem = AppwriteDoc & {
   stock_opname_id: string;
   product_id: string;
+  product_variant_id?: string | null;
   system_qty: number;
   actual_qty: number;
   difference: number;
@@ -184,7 +186,7 @@ export async function cancelOpname(id: string, _userId: string): Promise<Result<
 }
 
 export async function addOpnameItem(
-  input: { stock_opname_id: string; product_id: string; actual_qty: number; note?: string },
+  input: { stock_opname_id: string; product_id: string; product_variant_id?: string | null; actual_qty: number; note?: string },
   _userId: string
 ): Promise<Result<OpnameItem>> {
   const errors = validateOpnameItemInput(input);
@@ -202,16 +204,46 @@ export async function addOpnameItem(
     return { ok: false, errors: { product_id: "Produk nonaktif tidak bisa diopname." } };
   }
 
+  // KEPUTUSAN OPNAME LEVEL-VARIAN (Task 8b): stok produk bervarian dicatat
+  // per varian di product_variants.current_stock, sedangkan
+  // products.current_stock hanya agregat. Mengopname produk bervarian di
+  // level induk akan double-count dengan baris variannya saat posting
+  // (Function menaikkan agregat induk per adjustment varian), jadi baris
+  // induk untuk produk bervarian DITOLAK — wajib pilih satu varian.
+  // Produk tanpa varian aktif tetap diopname seperti dulu (variant null).
+  const variantId = input.product_variant_id?.trim() || null;
+  let activeVariants: { $id: string; current_stock: number }[] = [];
+  try {
+    activeVariants = (await listVariants(input.product_id)).filter((v) => v.is_active);
+  } catch {
+    activeVariants = [];
+  }
+  let systemQty = Number(product.current_stock ?? 0);
+  if (activeVariants.length > 0) {
+    if (!variantId) {
+      return { ok: false, errors: { product_variant_id: "Produk ini punya varian — pilih varian, opname induk tidak dihitung." } };
+    }
+    const variant = activeVariants.find((v) => v.$id === variantId);
+    if (!variant) {
+      return { ok: false, errors: { product_variant_id: "Varian tidak dikenal untuk produk ini." } };
+    }
+    systemQty = Number(variant.current_stock ?? 0);
+  } else if (variantId) {
+    return { ok: false, errors: { product_variant_id: "Produk ini tidak punya varian aktif." } };
+  }
+
   const existing = await adminDatabases().listDocuments("erp", OPN_ITEMS_COLLECTION, [
     Query.equal("stock_opname_id", [input.stock_opname_id]),
     Query.equal("product_id", [input.product_id]),
-    Query.limit(1),
+    Query.limit(100),
   ]);
-  if (existing.documents.length > 0) {
+  const duplicate = (existing.documents as unknown as { product_variant_id?: string | null }[]).some(
+    (doc) => (doc.product_variant_id ?? null) === variantId
+  );
+  if (duplicate) {
     return { ok: false, errors: { product_id: "Produk ini sudah ada di opname." } };
   }
 
-  const systemQty = Number(product.current_stock ?? 0);
   const actualQty = input.actual_qty;
 
   try {
@@ -222,6 +254,7 @@ export async function addOpnameItem(
       data: {
         stock_opname_id: input.stock_opname_id,
         product_id: input.product_id,
+        product_variant_id: variantId,
         system_qty: systemQty,
         actual_qty: actualQty,
         difference: actualQty - systemQty,

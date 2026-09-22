@@ -40,6 +40,7 @@ export type GoodsReceiptItem = AppwriteDoc & {
   goods_receipt_id: string;
   purchase_order_item_id: string;
   product_id: string;
+  product_variant_id?: string | null;
   quantity_received: number;
 };
 
@@ -200,6 +201,7 @@ export async function createGoodsReceipt(
             goods_receipt_id: grDoc.$id,
             purchase_order_item_id: item.purchase_order_item_id,
             product_id: item.product_id,
+            product_variant_id: item.product_variant_id?.trim() || null,
             quantity_received: item.quantity_received,
           },
         });

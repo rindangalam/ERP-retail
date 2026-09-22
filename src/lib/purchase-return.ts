@@ -43,6 +43,7 @@ export type PurchaseReturn = AppwriteDoc & {
 export type PurchaseReturnItem = AppwriteDoc & {
   purchase_return_id: string;
   product_id: string;
+  product_variant_id?: string | null;
   quantity: number;
   unit_price: number;
 };
@@ -165,13 +166,14 @@ export async function listGRsForPR(): Promise<GRForPR[]> {
       supplier_id: po?.supplier_id ?? "",
       supplier_name: supplierMap.get(po?.supplier_id ?? "") ?? "—",
       items: items.map((item: unknown) => {
-        const gi = item as { $id: string; purchase_order_item_id: string; product_id: string; quantity_received: number };
+        const gi = item as { $id: string; purchase_order_item_id: string; product_id: string; product_variant_id?: string | null; quantity_received: number };
         const poItem = poItemsMap.get(gi.purchase_order_item_id);
         const product = productMap.get(gi.product_id);
         return {
           ...toPlain(item as Record<string, unknown>),
           sku: product?.sku ?? "",
           product_name: product?.name ?? "",
+          product_variant_id: gi.product_variant_id ?? null,
           unit_price: poItem?.unit_price ?? product?.cost_price ?? 0,
           po_quantity: poItem?.quantity ?? 0,
         };
@@ -226,6 +228,7 @@ export async function createPurchaseReturn(
           data: {
             purchase_return_id: prDoc.$id,
             product_id: item.product_id,
+            product_variant_id: item.product_variant_id?.trim() || null,
             quantity: item.quantity,
             unit_price: item.unit_price,
           },

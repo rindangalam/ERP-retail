@@ -9,12 +9,29 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { _createGoodsReceipt } from "../actions";
 import type { PurchaseOrderWithItems } from "@/lib/purchase-order";
+import type { ProductVariant } from "@/lib/variants";
 
 type Props = {
   pos: PurchaseOrderWithItems[];
+  variantsByProduct: Record<string, ProductVariant[]>;
 };
 
-export function GoodsReceiptForm({ pos }: Props) {
+type GRRow = {
+  purchase_order_item_id: string;
+  product_id: string;
+  product_variant_id: string | null;
+  qty: number;
+  po_qty: number;
+};
+
+// Label dropdown varian: SIZE · Warna · SKU · stok (pola pos-client).
+function variantOptionLabel(v: ProductVariant): string {
+  const parts = [v.size?.trim(), v.color?.trim()].filter(Boolean);
+  const head = parts.length > 0 ? parts.join(" / ") : v.sku;
+  return `${head} · ${v.sku} · stok ${Number(v.current_stock)}`;
+}
+
+export function GoodsReceiptForm({ pos, variantsByProduct }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -23,9 +40,7 @@ export function GoodsReceiptForm({ pos }: Props) {
   const [selectedPOId, setSelectedPOId] = useState<string>("");
   const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<
-    { purchase_order_item_id: string; product_id: string; qty: number; po_qty: number }[]
-  >([]);
+  const [items, setItems] = useState<GRRow[]>([]);
 
   function handlePOChange(poId: string) {
     const po = pos.find((p) => p.$id === poId);
@@ -35,10 +50,15 @@ export function GoodsReceiptForm({ pos }: Props) {
       po.items.map((item) => ({
         purchase_order_item_id: item.$id,
         product_id: item.product_id,
+        product_variant_id: null,
         qty: 0,
         po_qty: item.quantity,
       }))
     );
+  }
+
+  function updateVariant(idx: number, variantId: string) {
+    setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, product_variant_id: variantId || null } : item)));
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -55,19 +75,32 @@ export function GoodsReceiptForm({ pos }: Props) {
       return;
     }
 
+    const received = items.filter((item) => item.qty > 0);
+    if (received.length === 0) {
+      setFieldErrors({ items: "Minimal satu item dengan qty > 0." });
+      return;
+    }
+    // Produk bervarian wajib pilih varian; produk polos kirim null.
+    const missingVariant = received.some(
+      (item) => (variantsByProduct[item.product_id]?.length ?? 0) > 0 && !item.product_variant_id
+    );
+    if (missingVariant) {
+      setFieldErrors({ items: "Pilih varian untuk tiap produk bervarian." });
+      return;
+    }
+
     const form = e.currentTarget;
     const formData = new FormData(form);
     formData.set("purchase_order_id", selectedPOId);
     formData.set(
       "items",
       JSON.stringify(
-        items
-          .filter((item) => item.qty > 0)
-          .map((item) => ({
-            purchase_order_item_id: item.purchase_order_item_id,
-            product_id: item.product_id,
-            quantity_received: item.qty,
-          }))
+        received.map((item) => ({
+          purchase_order_item_id: item.purchase_order_item_id,
+          product_id: item.product_id,
+          product_variant_id: item.product_variant_id ?? null,
+          quantity_received: item.qty,
+        }))
       )
     );
 
@@ -134,31 +167,54 @@ export function GoodsReceiptForm({ pos }: Props) {
                 <thead>
                   <tr className="border-b">
                     <th className="p-2 text-left">Produk</th>
+                    <th className="p-2 text-left">Varian</th>
                     <th className="p-2 text-right">Qty PO</th>
                     <th className="p-2 text-right">Qty Diterima</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={item.purchase_order_item_id} className="border-b">
-                      <td className="p-2">{item.product_id}</td>
-                      <td className="p-2 text-right">{item.po_qty}</td>
-                      <td className="p-2 text-right">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={item.po_qty}
-                          value={item.qty}
-                          onChange={(e) => {
-                            const newItems = [...items];
-                            newItems[idx].qty = Number(e.target.value);
-                            setItems(newItems);
-                          }}
-                          className="w-24 text-right ml-auto"
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item, idx) => {
+                    const variants = variantsByProduct[item.product_id] ?? [];
+                    return (
+                      <tr key={item.purchase_order_item_id} className="border-b">
+                        <td className="p-2">{item.product_id}</td>
+                        <td className="p-2">
+                          {variants.length > 0 ? (
+                            <select
+                              value={item.product_variant_id ?? ""}
+                              onChange={(e) => updateVariant(idx, e.target.value)}
+                              className="flex h-9 w-full min-w-40 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                              aria-label={`Varian untuk ${item.product_id}`}
+                            >
+                              <option value="">Pilih varian</option>
+                              {variants.map((v) => (
+                                <option key={v.$id} value={v.$id}>
+                                  {variantOptionLabel(v)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-right">{item.po_qty}</td>
+                        <td className="p-2 text-right">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.po_qty}
+                            value={item.qty}
+                            onChange={(e) => {
+                              const newItems = [...items];
+                              newItems[idx].qty = Number(e.target.value);
+                              setItems(newItems);
+                            }}
+                            className="w-24 text-right ml-auto"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               {fieldErrors.items && <p className="text-sm text-destructive">{fieldErrors.items}</p>}

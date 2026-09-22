@@ -4,16 +4,31 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { InvoiceForReturn } from "@/lib/sales-return";
+import type { ProductVariant } from "@/lib/variants";
 import { createReturn } from "../actions";
 
-type Props = { invoices: InvoiceForReturn[] };
+type Props = { invoices: InvoiceForReturn[]; variantsByProduct: Record<string, ProductVariant[]> };
 
-type ReturnItem = { product_id: string; quantity: number; unit_price: number; sales_invoice_item_id: string };
+type ReturnItem = {
+  product_id: string;
+  product_variant_id: string | null;
+  quantity: number;
+  unit_price: number;
+  sales_invoice_item_id: string;
+};
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
-export function SalesReturnForm({ invoices }: Props) {
+// Label dropdown varian: SIZE · Warna · SKU (pola pos-client).
+function variantLabel(v: ProductVariant): string {
+  const parts = [v.size?.trim(), v.color?.trim()].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : v.sku;
+}
+
+// Varian prefill dikunci: label baca-saja via variantLabel + rowVariantText.
+
+export function SalesReturnForm({ invoices, variantsByProduct }: Props) {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -31,6 +46,8 @@ export function SalesReturnForm({ invoices }: Props) {
     if (inv) {
       setItems(inv.items.map((item) => ({
         product_id: item.product_id,
+        // Bawa varian dari invoice asal; null untuk item lama tanpa varian.
+        product_variant_id: item.product_variant_id ?? null,
         quantity: 0,
         unit_price: item.unit_price,
         sales_invoice_item_id: item.sales_invoice_item_id,
@@ -44,19 +61,48 @@ export function SalesReturnForm({ invoices }: Props) {
     setItems((prev) => prev.map((item, i) => i === index ? { ...item, quantity: qty } : item));
   };
 
+  // Varian dikunci mengikuti invoice asal (prefill): tidak ada pengubahan via UI.
+  // Bila state inkonsisten (produk bervarian tanpa varian), submit menolak
+  // dengan pesan Bahasa Indonesia di bawah.
+
   const filteredItems = items.filter((item) => item.quantity > 0);
+
+  const variantById = React.useMemo(() => {
+    const map = new Map<string, ProductVariant>();
+    for (const vs of Object.values(variantsByProduct)) {
+      for (const v of vs) map.set(v.$id, v);
+    }
+    return map;
+  }, [variantsByProduct]);
+
+  function rowVariantText(item: ReturnItem): string {
+    if (!item.product_variant_id) return "—";
+    const v = variantById.get(item.product_variant_id);
+    return v ? variantLabel(v) : item.product_variant_id;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInvoiceId) { setErrors({ sales_invoice_id: "Wajib dipilih." }); return; }
     if (filteredItems.length === 0) { setErrors({ items: "Minimal 1 item dengan qty > 0." }); return; }
+    // Produk bervarian wajib kirim varian; produk polos kirim null.
+    const missingVariant = filteredItems.some(
+      (item) => (variantsByProduct[item.product_id]?.length ?? 0) > 0 && !item.product_variant_id
+    );
+    if (missingVariant) { setErrors({ items: "Pilih varian untuk tiap produk bervarian." }); return; }
     setLoading(true);
     setErrors({});
     const result = await createReturn({
       sales_invoice_id: selectedInvoiceId,
       return_date: returnDate,
       notes: notes || undefined,
-      items: filteredItems,
+      items: filteredItems.map((item) => ({
+        product_id: item.product_id,
+        product_variant_id: item.product_variant_id ?? null,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        sales_invoice_item_id: item.sales_invoice_item_id,
+      })),
     });
     if (!result.ok) { setErrors(result.errors); setLoading(false); return; }
     router.push("/sales-returns");
@@ -98,6 +144,7 @@ export function SalesReturnForm({ invoices }: Props) {
             <thead>
               <tr className="border-b">
                 <th className="px-3 py-2 text-left font-medium">Produk</th>
+                <th className="px-3 py-2 text-left font-medium">Varian</th>
                 <th className="px-3 py-2 text-right font-medium">Qty Invoice</th>
                 <th className="px-3 py-2 text-right font-medium">Harga</th>
                 <th className="px-3 py-2 text-right font-medium">Qty Retur</th>
@@ -105,10 +152,15 @@ export function SalesReturnForm({ invoices }: Props) {
             </thead>
             <tbody>
               {items.map((item, i) => {
-                const invItem = selectedInvoice.items.find((ii) => ii.product_id === item.product_id);
+                const invItem = selectedInvoice.items.find((ii) => ii.sales_invoice_item_id === item.sales_invoice_item_id);
                 return (
-                  <tr key={item.product_id} className="border-b last:border-0">
+                  <tr key={item.sales_invoice_item_id} className="border-b last:border-0">
                     <td className="px-3 py-2">{invItem?.product_id ?? item.product_id}</td>
+                    <td className="px-3 py-2">
+                      {/* Prefill: varian dikunci ke nilai invoice asal. Produk polos → null/—. */}
+                      <span className="text-muted-foreground">{rowVariantText(item)}</span>
+                      <input type="hidden" value={item.product_variant_id ?? ""} aria-hidden="true" tabIndex={-1} readOnly />
+                    </td>
                     <td className="px-3 py-2 text-right">{invItem?.quantity ?? "—"}</td>
                     <td className="px-3 py-2 text-right">{fmtCurrency(item.unit_price)}</td>
                     <td className="px-3 py-2 text-right">

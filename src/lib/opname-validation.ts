@@ -5,6 +5,7 @@ export type OpnameInput = {
 
 export type OpnameItemInput = {
   product_id: string;
+  product_variant_id?: string | null;
   actual_qty: number;
   note?: string;
 };
@@ -35,6 +36,13 @@ export function validateOpnameItemInput(input: OpnameItemInput): Record<string, 
 
   if (!input.product_id) {
     errors.product_id = "Produk wajib dipilih.";
+  }
+
+  const variantId = input.product_variant_id ?? null;
+  if (variantId !== null && variantId !== undefined) {
+    if (typeof variantId !== "string" || variantId.trim() === "") {
+      errors.product_variant_id = "Varian produk tidak valid.";
+    }
   }
 
   if (!Number.isFinite(input.actual_qty) || input.actual_qty < 0) {

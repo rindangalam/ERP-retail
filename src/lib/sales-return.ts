@@ -22,7 +22,7 @@ export type SalesReturn = AppwriteDoc & {
 
 export type SalesReturnItem = AppwriteDoc & {
   sales_return_id: string; sales_invoice_item_id: string | null;
-  product_id: string; quantity: number; unit_price: number;
+  product_id: string; product_variant_id?: string | null; quantity: number; unit_price: number;
 };
 
 export type SalesReturnWithItems = SalesReturn & {
@@ -114,7 +114,7 @@ export async function getSalesReturn(id: string): Promise<SalesReturnWithItems |
 export type InvoiceForReturn = {
   $id: string; invoice_number: string; customer_id: string; customer_name: string;
   total_amount: number; status: string;
-  items: { product_id: string; quantity: number; unit_price: number; line_total: number; sales_invoice_item_id: string }[];
+  items: { product_id: string; product_variant_id: string | null; quantity: number; unit_price: number; line_total: number; sales_invoice_item_id: string }[];
 };
 
 export async function listInvoicesForReturn(): Promise<InvoiceForReturn[]> {
@@ -127,13 +127,14 @@ export async function listInvoicesForReturn(): Promise<InvoiceForReturn[]> {
   const results: InvoiceForReturn[] = [];
   for (const si of siResult.documents as unknown as { $id: string; invoice_number: string; customer_id: string; total_amount: number; status: string }[]) {
     const items = (await listByField(SII_COLLECTION, "sales_invoice_id", si.$id)) as unknown as {
-      $id: string; product_id: string; quantity: number; unit_price: number; line_total: number;
+      $id: string; product_id: string; product_variant_id?: string | null; quantity: number; unit_price: number; line_total: number;
     }[];
     results.push({
       $id: si.$id, invoice_number: si.invoice_number, customer_id: si.customer_id,
       customer_name: customerMap.get(si.customer_id) ?? "—", total_amount: si.total_amount, status: si.status,
       items: items.map((item) => ({
-        product_id: item.product_id, quantity: item.quantity, unit_price: item.unit_price,
+        product_id: item.product_id, product_variant_id: item.product_variant_id ?? null,
+        quantity: item.quantity, unit_price: item.unit_price,
         line_total: item.line_total, sales_invoice_item_id: item.$id,
       })),
     });
@@ -151,7 +152,7 @@ async function nextReturnNumber(returnDate: string): Promise<string> {
 
 export type SalesReturnInput = {
   sales_invoice_id: string; return_date: string; notes?: string;
-  items: { product_id: string; quantity: number; unit_price: number; sales_invoice_item_id?: string }[];
+  items: { product_id: string; product_variant_id?: string | null; quantity: number; unit_price: number; sales_invoice_item_id?: string }[];
 };
 
 export async function createSalesReturn(
@@ -162,6 +163,12 @@ export async function createSalesReturn(
   if (!input.items || input.items.length === 0) return { ok: false, errors: { items: "Minimal 1 item." }, code: "validation" };
   for (const item of input.items) {
     if (!item.product_id) return { ok: false, errors: { items: "Product wajib dipilih." }, code: "validation" };
+    const variantId = item.product_variant_id ?? null;
+    if (variantId !== null && variantId !== undefined) {
+      if (typeof variantId !== "string" || variantId.trim() === "") {
+        return { ok: false, errors: { items: "Varian produk tidak valid." }, code: "validation" };
+      }
+    }
     if (item.quantity <= 0) return { ok: false, errors: { items: "Qty harus > 0." }, code: "validation" };
     if (item.unit_price < 0) return { ok: false, errors: { items: "Harga tidak boleh negatif." }, code: "validation" };
   }
@@ -185,7 +192,8 @@ export async function createSalesReturn(
           databaseId: DATABASE_ID, collectionId: SRI_COLLECTION, documentId: ID.unique(),
           data: {
             sales_return_id: srDoc.$id, sales_invoice_item_id: item.sales_invoice_item_id || null,
-            product_id: item.product_id, quantity: item.quantity, unit_price: item.unit_price,
+            product_id: item.product_id, product_variant_id: item.product_variant_id?.trim() || null,
+            quantity: item.quantity, unit_price: item.unit_price,
           },
         });
         createdItemIds.push(itemDoc.$id);
@@ -216,7 +224,8 @@ export async function createSalesReturn(
           return toPlain({
             $id: createdItemIds[i] ?? "", sales_return_id: srDoc.$id,
             sales_invoice_item_id: item.sales_invoice_item_id || null,
-            product_id: item.product_id, quantity: item.quantity, unit_price: item.unit_price,
+            product_id: item.product_id, product_variant_id: item.product_variant_id?.trim() || null,
+            quantity: item.quantity, unit_price: item.unit_price,
             product_name: p?.name ?? "—", sku: p?.sku ?? "",
           });
         }) as unknown as SalesReturnWithItems["items"],
