@@ -306,7 +306,7 @@ export function ProductsClient({ products, categories, variantsByProduct }: Prod
                     </li>
                   ))}
                 </ul>
-                <p className="mt-1 text-[11px] text-muted-foreground">Stok varian read-only.</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Stok varian hanya bisa dibaca.</p>
               </div>
             );
           })}

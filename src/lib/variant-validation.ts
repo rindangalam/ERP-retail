@@ -20,7 +20,7 @@ export function validateVariantInput(i: VariantInput): ValidationResult {
   const size = i.size?.trim() ?? "";
   const color = i.color?.trim() ?? "";
   if (!size && !color) {
-    errors.size = "Size atau warna minimal satu harus diisi.";
+    errors.size = "Ukuran atau warna minimal satu harus diisi.";
   }
 
   if (!i.sku?.trim()) {
