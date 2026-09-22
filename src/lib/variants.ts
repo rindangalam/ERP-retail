@@ -2,7 +2,14 @@ import "server-only";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { adminDatabases } from "./appwrite-server";
 import { normalizeSku } from "./inventory-validation";
-import { validateVariantInput, type VariantInput } from "./variant-validation";
+import { isVariantDuplicateError, validateVariantInput, type VariantInput } from "./variant-validation";
+
+// Bentuk Result diselaraskan dengan src/lib/inventory.ts:
+// ({ok:true,data} | {ok:false,errors,code?}) agar konsumen dan
+// pola "duplicate_field" konsisten antar DAL.
+export type VariantResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; errors: Record<string, string>; code?: string };
 
 export type ProductVariant = {
   $id: string;
@@ -67,10 +74,20 @@ async function findVariantBySku(sku: string): Promise<ProductVariant | null> {
   return (result.documents[0] as unknown as ProductVariant) ?? null;
 }
 
+async function findVariantByBarcode(barcode: string): Promise<ProductVariant | null> {
+  if (!barcode?.trim()) return null;
+  const result = await adminDatabases().listDocuments(
+    VARIANTS_DATABASE_ID,
+    PRODUCT_VARIANTS_COLLECTION,
+    [Query.equal("barcode", [barcode.trim()])],
+  );
+  return (result.documents[0] as unknown as ProductVariant) ?? null;
+}
+
 export async function createVariant(
   input: VariantInput,
   userId: string,
-): Promise<{ ok: true; data: ProductVariant } | { ok: false; errors: Record<string, string> }> {
+): Promise<VariantResult<ProductVariant>> {
   const validated = validateVariantInput(input);
   if (!validated.ok) return validated;
 
@@ -78,6 +95,13 @@ export async function createVariant(
   const existing = await findVariantBySku(sku);
   if (existing) {
     return { ok: false, errors: { sku: "SKU sudah dipakai varian lain." } };
+  }
+
+  if (input.barcode?.trim()) {
+    const existingBarcode = await findVariantByBarcode(input.barcode);
+    if (existingBarcode) {
+      return { ok: false, errors: { barcode: "Barcode sudah dipakai varian lain." } };
+    }
   }
 
   const now = nowIso();
@@ -103,9 +127,19 @@ export async function createVariant(
     });
     return { ok: true, data: toPlain(doc as unknown as ProductVariant) };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/unique|duplicate|already exists/i.test(message)) {
-      return { ok: false, errors: { sku: "SKU sudah dipakai varian lain." } };
+    // Jaring kemungkinan race: SKU/barcode bentrok di unique index.
+    const duplicate = isVariantDuplicateError(error);
+    if (duplicate) {
+      return {
+        ok: false,
+        errors: {
+          [duplicate.field]:
+            duplicate.field === "sku"
+              ? "SKU sudah dipakai varian lain."
+              : "Barcode sudah dipakai varian lain.",
+        },
+        code: "duplicate_field",
+      };
     }
     console.error("createVariant failed:", error);
     return { ok: false, errors: {} };
