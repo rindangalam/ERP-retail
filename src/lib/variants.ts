@@ -65,6 +65,42 @@ export async function listVariants(productId: string): Promise<ProductVariant[]>
     );
 }
 
+// Batch: 1 query melayani s.d. 30 product_id (hindari N+1 Promise.all
+// listVariants per produk). Pola chunk 30 meniru boutique-reports.ts
+// getItemsForInvoices; group by product_id di memori.
+export async function listVariantsByProductIds(
+  ids: string[],
+): Promise<Record<string, ProductVariant[]>> {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return {};
+  const all: ProductVariant[] = [];
+  for (let i = 0; i < uniqueIds.length; i += 30) {
+    const chunk = uniqueIds.slice(i, i + 30);
+    let offset = 0;
+    for (;;) {
+      const result = await adminDatabases().listDocuments(
+        VARIANTS_DATABASE_ID,
+        PRODUCT_VARIANTS_COLLECTION,
+        [Query.equal("product_id", chunk), Query.limit(100), Query.offset(offset)],
+      );
+      all.push(...(result.documents as unknown as ProductVariant[]));
+      if (result.documents.length < 100) break;
+      offset += 100;
+    }
+  }
+  const grouped: Record<string, ProductVariant[]> = {};
+  for (const v of all.map(toPlain)) {
+    (grouped[v.product_id] ??= []).push(v);
+  }
+  for (const vs of Object.values(grouped)) {
+    vs.sort(
+      (a, b) =>
+        a.size.localeCompare(b.size, "id") || a.color.localeCompare(b.color, "id"),
+    );
+  }
+  return grouped;
+}
+
 async function findVariantBySku(sku: string): Promise<ProductVariant | null> {
   const result = await adminDatabases().listDocuments(
     VARIANTS_DATABASE_ID,
