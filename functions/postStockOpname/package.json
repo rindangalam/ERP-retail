@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/core.test.mjs"
+    "test": "node --test test/core.test.mjs test/variant.test.mjs test/variant-gr-opname-return.test.mjs"
   },
   "dependencies": {
     "node-appwrite": "^28.0.0"

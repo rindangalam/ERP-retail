@@ -11,30 +11,68 @@ export function validatePostOpnameInput(payload) {
     errors,
     stock_opname_id,
     created_by,
-    allowNegative: payload.allowNegative === true,
+    allowNegative: payload.allow_negative === true || payload.allowNegative === true,
   };
 }
 
-export function buildAdjustments(items) {
+export function buildAdjustments(items, variantInfos = new Map()) {
   const adjustments = [];
   const errors = {};
-  for (const item of items) {
-    const diff = Number(item.difference);
+  const lookupVariant = (id) =>
+    variantInfos instanceof Map ? variantInfos.get(id) : variantInfos[id];
+  items.forEach((item, i) => {
+    const prefix = `items.${i}`;
     if (!item.product_id) {
-      errors.items = "Ada item tanpa produk.";
-      break;
+      errors[`${prefix}.product_id`] = "Produk wajib diisi.";
+      return;
     }
-    if (!Number.isFinite(diff)) {
-      errors.items = "Selisih tidak valid.";
-      break;
+    const variantId = item.product_variant_id ?? null;
+    if (variantId != null) {
+      const info = lookupVariant(variantId);
+      if (info && info.product_id !== item.product_id) {
+        errors[`${prefix}.product_variant_id`] = `Varian ${variantId} bukan milik produk ${item.product_id}.`;
+        return;
+      }
+    }
+    const hasSys = item.system_qty !== undefined && item.system_qty !== null && item.system_qty !== "";
+    const hasAct = item.actual_qty !== undefined && item.actual_qty !== null && item.actual_qty !== "";
+    let diff;
+    if (hasSys || hasAct) {
+      const sys = Number(item.system_qty);
+      const act = Number(item.actual_qty);
+      if (!Number.isFinite(sys)) {
+        errors[`${prefix}.system_qty`] = "system_qty harus angka.";
+        return;
+      }
+      if (sys < 0) {
+        errors[`${prefix}.system_qty`] = "system_qty tidak boleh negatif.";
+        return;
+      }
+      if (!Number.isFinite(act)) {
+        errors[`${prefix}.actual_qty`] = "actual_qty harus angka.";
+        return;
+      }
+      if (act < 0) {
+        errors[`${prefix}.actual_qty`] = "actual_qty tidak boleh negatif.";
+        return;
+      }
+      diff = act - sys;
+    } else {
+      diff = Number(item.difference);
+      if (!Number.isFinite(diff)) {
+        errors[`${prefix}.difference`] = "Selisih tidak valid.";
+        return;
+      }
     }
     if (diff !== 0) {
-      adjustments.push({
+      const adj = {
         product_id: item.product_id,
         difference: diff,
-      });
+      };
+      if (variantId != null) adj.product_variant_id = variantId;
+      adjustments.push(adj);
     }
-  }
+  });
   return { adjustments, errors };
 }
 
@@ -118,4 +156,96 @@ export function determinePOStatus(cumulative, po_items) {
   if (!anyReceived) return "ordered";
   if (allFullyReceived) return "received";
   return "partial";
+}
+
+// ─── Variant-aware stock plans (GR / purchase-return / sales-return) ───
+// Pola mengikuti buildSalesInvoiceJournalPlan di core-sales-invoice.js:
+// item boleh membawa `product_variant_id` (NULL = tanpa varian, backward-
+// compat: field varian absen di movement). Kepemilikan varian dicek lewat
+// `options.variantInfos` (Map variant_id -> { product_id, ... } atau objek
+// biasa). Atomic: ada satu error -> return { errors } tanpa movement.
+// GR/SR = stok masuk (delta positif), PR = stok keluar (delta negatif).
+function buildVariantStockPlan({ doc, items, qtyField, qtyErrorField, movement_type, note, created_by, variantInfos }) {
+  const lookupVariant = (id) =>
+    variantInfos instanceof Map ? variantInfos.get(id) : variantInfos[id];
+
+  const now = new Date().toISOString();
+  const errors = {};
+  const stock_movements = [];
+  const updates = [];
+  const variant_updates = [];
+
+  items.forEach((item, idx) => {
+    const prefix = `items.${idx}`;
+    const qty = Number(item[qtyField]);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      errors[`${prefix}.${qtyErrorField}`] = "Qty harus angka > 0.";
+      return;
+    }
+    const variantId = item.product_variant_id ?? null;
+    if (variantId != null) {
+      const info = lookupVariant(variantId);
+      if (info && info.product_id !== item.product_id) {
+        errors[`${prefix}.product_variant_id`] = `Varian ${variantId} bukan milik produk ${item.product_id}.`;
+        return;
+      }
+    }
+    const movement = {
+      product_id: item.product_id,
+      movement_type,
+      quantity_delta: movement_type === "purchase_return" ? -qty : qty,
+      source_type: movement_type,
+      source_id: doc.$id,
+      note,
+      created_by,
+      created_at: now,
+    };
+    if (variantId != null) movement.product_variant_id = variantId;
+    stock_movements.push(movement);
+    updates.push({ product_id: item.product_id, delta: movement.quantity_delta });
+    if (variantId != null) variant_updates.push({ variant_id: variantId, delta: movement.quantity_delta });
+  });
+
+  if (Object.keys(errors).length > 0) return { errors };
+
+  return { stock_movements, updates, variant_updates };
+}
+
+export function buildGRStockPlan(gr, gr_items, created_by, options = {}) {
+  return buildVariantStockPlan({
+    doc: gr,
+    items: gr_items,
+    qtyField: "quantity_received",
+    qtyErrorField: "quantity_received",
+    movement_type: "goods_receipt",
+    note: `GR ${gr.gr_number}`,
+    created_by,
+    variantInfos: options.variantInfos ?? new Map(),
+  });
+}
+
+export function buildPRStockPlan(pr, pr_items, created_by, options = {}) {
+  return buildVariantStockPlan({
+    doc: pr,
+    items: pr_items,
+    qtyField: "quantity",
+    qtyErrorField: "quantity",
+    movement_type: "purchase_return",
+    note: `PR ${pr.return_number}`,
+    created_by,
+    variantInfos: options.variantInfos ?? new Map(),
+  });
+}
+
+export function buildSRStockPlan(sr, sr_items, created_by, options = {}) {
+  return buildVariantStockPlan({
+    doc: sr,
+    items: sr_items,
+    qtyField: "quantity",
+    qtyErrorField: "quantity",
+    movement_type: "sales_return",
+    note: `Retur penjualan ${sr.return_number}`,
+    created_by,
+    variantInfos: options.variantInfos ?? new Map(),
+  });
 }

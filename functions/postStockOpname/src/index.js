@@ -14,6 +14,7 @@ import {
 
 const DATABASE_ID = process.env.ERP_DATABASE_ID || "erp";
 const PRODUCTS_COLLECTION = process.env.ERP_PRODUCTS_COLLECTION || "products";
+const VARIANTS_COLLECTION = process.env.ERP_PRODUCT_VARIANTS_COLLECTION || "product_variants";
 const MOVEMENTS_COLLECTION = process.env.ERP_STOCK_MOVEMENTS_COLLECTION || "stock_movements";
 const OPN_COLLECTION = process.env.ERP_STOCK_OPNAMES_COLLECTION || "stock_opnames";
 const OPN_ITEMS_COLLECTION = process.env.ERP_STOCK_OPNAME_ITEMS_COLLECTION || "stock_opname_items";
@@ -77,10 +78,30 @@ async function handlePostOpname(databases, payload, res, error) {
       return res.json({ ok: false, errors: { _form: "Opname tidak memiliki item." } }, 400);
     }
 
-    const { adjustments, errors: itemErrors } = buildAdjustments(items);
+    // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian)
+    const variantIds = [...new Set(items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
+    const variantMap = new Map();
+    for (const vid of variantIds) {
+      const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
+      if (v) variantMap.set(vid, v);
+    }
+
+    const { adjustments, errors: itemErrors } = buildAdjustments(items, variantMap);
     if (Object.keys(itemErrors).length > 0) return res.json({ ok: false, errors: itemErrors }, 400);
     if (adjustments.length === 0) {
       return res.json({ ok: false, errors: { _form: "Tidak ada selisih yang perlu disesuaikan." } }, 400);
+    }
+
+    // Variant existence check — sebelum write apa pun (atomic: gagal di satu = seluruh posting gagal).
+    // Kepemilikan varian sudah dicek di buildAdjustments via variantMap.
+    for (const adj of adjustments) {
+      const vid = adj.product_variant_id ?? null;
+      if (vid && !variantMap.get(vid)) {
+        return res.json(
+          { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: adj.product_id } },
+          404
+        );
+      }
     }
 
     const now = new Date().toISOString();
@@ -88,6 +109,7 @@ async function handlePostOpname(databases, payload, res, error) {
     let movementCount = 0;
 
     for (const adj of adjustments) {
+      const variantId = adj.product_variant_id ?? null;
       const existing = await databases.listDocuments(DATABASE_ID, MOVEMENTS_COLLECTION, [
         Query.equal("product_id", [adj.product_id]),
         Query.equal("movement_type", ["stock_opname"]),
@@ -95,14 +117,16 @@ async function handlePostOpname(databases, payload, res, error) {
         Query.equal("source_id", [stock_opname_id]),
         Query.limit(1),
       ]);
-      if (existing.documents.length > 0) {
+      const isDuplicate = variantId != null
+        ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
+        : existing.documents.length > 0;
+      if (isDuplicate) {
         updatedProducts.push({ product_id: adj.product_id, duplicate: true });
         continue;
       }
 
-      const currentStock = currentStockOf(
-        await listByField(databases, MOVEMENTS_COLLECTION, "product_id", adj.product_id)
-      );
+      const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", adj.product_id);
+      const currentStock = currentStockOf(movements);
       const newStock = currentStock + adj.difference;
       if (newStock < 0 && !allowNegative) {
         return res.json(
@@ -110,19 +134,40 @@ async function handlePostOpname(databases, payload, res, error) {
           409
         );
       }
+      if (variantId != null) {
+        const variantStock = movements
+          .filter((m) => (m.product_variant_id ?? null) === variantId)
+          .reduce((sum, m) => sum + Number(m.quantity_delta), 0);
+        if (variantStock + adj.difference < 0 && !allowNegative) {
+          return res.json(
+            {
+              ok: false,
+              errors: {
+                _form: `Stok varian tidak cukup untuk varian ${variantId}: tersedia ${variantStock}.`,
+                product_id: adj.product_id,
+                product_variant_id: variantId,
+                available: variantStock,
+              },
+            },
+            409
+          );
+        }
+      }
 
+      const movementPayload = {
+        product_id: adj.product_id,
+        movement_type: "stock_opname",
+        quantity_delta: adj.difference,
+        source_type: "stock_opname",
+        source_id: stock_opname_id,
+        note: `Opname ${opname.opname_number}`.slice(0, 500),
+        created_by,
+        created_at: now,
+      };
+      if (variantId != null) movementPayload.product_variant_id = variantId;
       await databases.createDocument(
         DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(),
-        {
-          product_id: adj.product_id,
-          movement_type: "stock_opname",
-          quantity_delta: adj.difference,
-          source_type: "stock_opname",
-          source_id: stock_opname_id,
-          note: `Opname ${opname.opname_number}`.slice(0, 500),
-          created_by,
-          created_at: now,
-        },
+        movementPayload,
         MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
       );
       movementCount += 1;
@@ -133,6 +178,16 @@ async function handlePostOpname(databases, payload, res, error) {
         updated_by: created_by,
       });
       updatedProducts.push({ product_id: adj.product_id, duplicate: false, difference: adj.difference, current_stock: newStock });
+      if (variantId != null) {
+        const newVariantStock = movements
+          .filter((m) => (m.product_variant_id ?? null) === variantId)
+          .reduce((sum, m) => sum + Number(m.quantity_delta), 0) + adj.difference;
+        await databases.updateDocument(DATABASE_ID, VARIANTS_COLLECTION, variantId, {
+          current_stock: newVariantStock,
+          updated_at: now,
+          updated_by: created_by,
+        });
+      }
     }
 
     await databases.updateDocument(DATABASE_ID, OPN_COLLECTION, stock_opname_id, {
@@ -217,6 +272,33 @@ async function handlePostGR(databases, payload, res, error) {
       return res.json({ ok: false, errors: { _form: "Total nol." } }, 400);
     }
 
+    // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian).
+    // Validasi eksistensi + kepemilikan SEBELUM write pertama (atomic),
+    // pola sama dengan opname & sales-return.
+    const grVariantIds = [...new Set(gr_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
+    const grVariantMap = new Map();
+    for (const vid of grVariantIds) {
+      const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
+      if (v) grVariantMap.set(vid, v);
+    }
+    for (const gi of gr_items) {
+      const vid = gi.product_variant_id ?? null;
+      if (vid) {
+        if (!grVariantMap.get(vid)) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: gi.product_id } },
+            404
+          );
+        }
+        if (grVariantMap.get(vid).product_id !== gi.product_id) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${vid} bukan milik produk ${gi.product_id}.` } },
+            400
+          );
+        }
+      }
+    }
+
     const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
     const coa_map = new Map(coa_accounts.documents.map((a) => [a.code, a]));
     const inv = coa_map.get("1210");
@@ -232,6 +314,7 @@ async function handlePostGR(databases, payload, res, error) {
 
     // Stock movements
     for (const gi of gr_items) {
+      const variantId = gi.product_variant_id ?? null;
       const qty = Number(gi.quantity_received);
       const existing = await databases.listDocuments(DATABASE_ID, MOVEMENTS_COLLECTION, [
         Query.equal("product_id", [gi.product_id]),
@@ -240,23 +323,28 @@ async function handlePostGR(databases, payload, res, error) {
         Query.equal("source_id", [goods_receipt_id]),
         Query.limit(1),
       ]);
-      if (existing.documents.length > 0) continue;
+      const isDuplicate = variantId != null
+        ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
+        : existing.documents.length > 0;
+      if (isDuplicate) continue;
 
       const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", gi.product_id);
       const newStock = currentStockOf(movements) + qty;
 
+      const movementPayload = {
+        product_id: gi.product_id,
+        movement_type: "goods_receipt",
+        quantity_delta: qty,
+        source_type: "goods_receipt",
+        source_id: goods_receipt_id,
+        note: `GR ${gr.gr_number}`.slice(0, 500),
+        created_by,
+        created_at: now,
+      };
+      if (variantId != null) movementPayload.product_variant_id = variantId;
       await databases.createDocument(
         DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(),
-        {
-          product_id: gi.product_id,
-          movement_type: "goods_receipt",
-          quantity_delta: qty,
-          source_type: "goods_receipt",
-          source_id: goods_receipt_id,
-          note: `GR ${gr.gr_number}`.slice(0, 500),
-          created_by,
-          created_at: now,
-        },
+        movementPayload,
         MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
       );
 
@@ -266,6 +354,16 @@ async function handlePostGR(databases, payload, res, error) {
         updated_by: created_by,
       });
       updatedProducts.push({ product_id: gi.product_id, current_stock: newStock });
+      if (variantId != null) {
+        const newVariantStock = movements
+          .filter((m) => (m.product_variant_id ?? null) === variantId)
+          .reduce((sum, m) => sum + Number(m.quantity_delta), 0) + qty;
+        await databases.updateDocument(DATABASE_ID, VARIANTS_COLLECTION, variantId, {
+          current_stock: newVariantStock,
+          updated_at: now,
+          updated_by: created_by,
+        });
+      }
     }
 
     // Journal entry
@@ -354,6 +452,32 @@ async function handlePostPR(databases, payload, res, error) {
       }
     }
 
+    // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian).
+    // Validasi eksistensi + kepemilikan SEBELUM write pertama (atomic).
+    const prVariantIds = [...new Set(pr_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
+    const prVariantMap = new Map();
+    for (const vid of prVariantIds) {
+      const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
+      if (v) prVariantMap.set(vid, v);
+    }
+    for (const ri of pr_items) {
+      const vid = ri.product_variant_id ?? null;
+      if (vid) {
+        if (!prVariantMap.get(vid)) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: ri.product_id } },
+            404
+          );
+        }
+        if (prVariantMap.get(vid).product_id !== ri.product_id) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${vid} bukan milik produk ${ri.product_id}.` } },
+            400
+          );
+        }
+      }
+    }
+
     // PO status recalculation
     let po = null, po_items = [];
     if (pr.purchase_order_id) {
@@ -403,7 +527,11 @@ async function handlePostPR(databases, payload, res, error) {
         cumulative_returned.set(ri.product_id, (cumulative_returned.get(ri.product_id) ?? 0) + Number(ri.quantity));
       }
 
-      // Journal plan
+      // Validasi varian (eksistensi 404 + kepemilikan 400) sudah dilakukan di
+      // atas via prVariantMap SEBELUM write pertama — mencakup jalur ber-PO
+      // maupun tanpa PO, jadi tidak ada validasi ulang di sini.
+
+    // Journal plan
       const po_items_map_for_journal = new Map();
       for (const ri of pr_items) {
         for (const pi of po_items) {
@@ -418,7 +546,7 @@ async function handlePostPR(databases, payload, res, error) {
         return res.json({ ok: false, errors: { _form: "Total nol." } }, 400);
       }
 
-      const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
+    const coa_accounts = await databases.listDocuments(DATABASE_ID, COA_COLLECTION, [Query.equal("is_active", [true])]);
       const coa_map = new Map(coa_accounts.documents.map((a) => [a.code, a]));
       const inv = coa_map.get("1210");
       const ap = coa_map.get("2110");
@@ -433,6 +561,7 @@ async function handlePostPR(databases, payload, res, error) {
 
       // Stock movements (reverse = negative)
       for (const ri of pr_items) {
+        const variantId = ri.product_variant_id ?? null;
         const qty = -Number(ri.quantity);
         const existing = await databases.listDocuments(DATABASE_ID, MOVEMENTS_COLLECTION, [
           Query.equal("product_id", [ri.product_id]),
@@ -441,23 +570,28 @@ async function handlePostPR(databases, payload, res, error) {
           Query.equal("source_id", [purchase_return_id]),
           Query.limit(1),
         ]);
-        if (existing.documents.length > 0) continue;
+        const isDuplicate = variantId != null
+          ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
+          : existing.documents.length > 0;
+        if (isDuplicate) continue;
 
         const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", ri.product_id);
         const newStock = currentStockOf(movements) + qty;
 
+        const movementPayload = {
+          product_id: ri.product_id,
+          movement_type: "purchase_return",
+          quantity_delta: qty,
+          source_type: "purchase_return",
+          source_id: purchase_return_id,
+          note: `PR ${pr.return_number}`.slice(0, 500),
+          created_by,
+          created_at: now,
+        };
+        if (variantId != null) movementPayload.product_variant_id = variantId;
         await databases.createDocument(
           DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(),
-          {
-            product_id: ri.product_id,
-            movement_type: "purchase_return",
-            quantity_delta: qty,
-            source_type: "purchase_return",
-            source_id: purchase_return_id,
-            note: `PR ${pr.return_number}`.slice(0, 500),
-            created_by,
-            created_at: now,
-          },
+          movementPayload,
           MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
         );
 
@@ -467,6 +601,16 @@ async function handlePostPR(databases, payload, res, error) {
           updated_by: created_by,
         });
         updatedProducts.push({ product_id: ri.product_id, current_stock: newStock });
+        if (variantId != null) {
+          const newVariantStock = movements
+            .filter((m) => (m.product_variant_id ?? null) === variantId)
+            .reduce((sum, m) => sum + Number(m.quantity_delta), 0) + qty;
+          await databases.updateDocument(DATABASE_ID, VARIANTS_COLLECTION, variantId, {
+            current_stock: newVariantStock,
+            updated_at: now,
+            updated_by: created_by,
+          });
+        }
       }
 
       // Journal entry
@@ -549,6 +693,7 @@ async function handlePostPR(databases, payload, res, error) {
     const updatedProducts2 = [];
 
     for (const ri of pr_items) {
+      const variantId = ri.product_variant_id ?? null;
       const qty = -Number(ri.quantity);
       const existing = await databases.listDocuments(DATABASE_ID, MOVEMENTS_COLLECTION, [
         Query.equal("product_id", [ri.product_id]),
@@ -557,23 +702,28 @@ async function handlePostPR(databases, payload, res, error) {
         Query.equal("source_id", [purchase_return_id]),
         Query.limit(1),
       ]);
-      if (existing.documents.length > 0) continue;
+      const isDuplicate = variantId != null
+        ? existing.documents.some((m) => (m.product_variant_id ?? null) === variantId)
+        : existing.documents.length > 0;
+      if (isDuplicate) continue;
 
       const movements = await listByField(databases, MOVEMENTS_COLLECTION, "product_id", ri.product_id);
       const newStock = currentStockOf(movements) + qty;
 
+      const movementPayload = {
+        product_id: ri.product_id,
+        movement_type: "purchase_return",
+        quantity_delta: qty,
+        source_type: "purchase_return",
+        source_id: purchase_return_id,
+        note: `PR ${pr.return_number}`.slice(0, 500),
+        created_by,
+        created_at: now2,
+      };
+      if (variantId != null) movementPayload.product_variant_id = variantId;
       await databases.createDocument(
         DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(),
-        {
-          product_id: ri.product_id,
-          movement_type: "purchase_return",
-          quantity_delta: qty,
-          source_type: "purchase_return",
-          source_id: purchase_return_id,
-          note: `PR ${pr.return_number}`.slice(0, 500),
-          created_by,
-          created_at: now2,
-        },
+        movementPayload,
         MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
       );
 
@@ -583,6 +733,16 @@ async function handlePostPR(databases, payload, res, error) {
         updated_by: created_by,
       });
       updatedProducts2.push({ product_id: ri.product_id, current_stock: newStock });
+      if (variantId != null) {
+        const newVariantStock = movements
+          .filter((m) => (m.product_variant_id ?? null) === variantId)
+          .reduce((sum, m) => sum + Number(m.quantity_delta), 0) + qty;
+        await databases.updateDocument(DATABASE_ID, VARIANTS_COLLECTION, variantId, {
+          current_stock: newVariantStock,
+          updated_at: now2,
+          updated_by: created_by,
+        });
+      }
     }
 
     const all_entries2 = await databases.listDocuments(DATABASE_ID, JE_COLLECTION, [Query.orderDesc("entry_number"), Query.limit(1)]);
@@ -662,6 +822,37 @@ async function handlePostSalesInvoice(databases, payload, res, error) {
       item._product = await databases.getDocument(DATABASE_ID, PRODUCTS_COLLECTION, item.product_id).catch(() => null);
     }
 
+    // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian)
+    const variantIds = [...new Set(si_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
+    const variantMap = new Map();
+    for (const vid of variantIds) {
+      const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
+      if (v) variantMap.set(vid, v);
+    }
+    for (const item of si_items) {
+      const vid = item.product_variant_id ?? null;
+      item._variant_id = vid;
+      item._variant = vid ? variantMap.get(vid) ?? null : null;
+    }
+
+    // Variant existence + ownership check — sebelum write apa pun (atomic: gagal di satu = seluruh posting gagal)
+    for (const item of si_items) {
+      if (item._variant_id) {
+        if (!item._variant) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${item._variant_id} tidak ditemukan.`, product_id: item.product_id } },
+            404
+          );
+        }
+        if (item._variant.product_id !== item.product_id) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${item._variant_id} bukan milik produk ${item.product_id}.` } },
+            400
+          );
+        }
+      }
+    }
+
     // Stock sufficiency check (unless stock_override)
     if (!si.stock_override) {
       for (const item of si_items) {
@@ -681,6 +872,27 @@ async function handlePostSalesInvoice(databases, payload, res, error) {
             },
             409
           );
+        }
+        if (item._variant_id) {
+          const variantStock = movements
+            .filter((m) => (m.product_variant_id ?? null) === item._variant_id)
+            .reduce((sum, m) => sum + Number(m.quantity_delta), 0);
+          if (variantStock < item.quantity) {
+            return res.json(
+              {
+                ok: false,
+                errors: {
+                  _form: `Stok varian tidak cukup untuk varian ${item._variant_id}: tersedia ${variantStock}, dibutuhkan ${item.quantity}.`,
+                  stock_insufficient: true,
+                  product_id: item.product_id,
+                  product_variant_id: item._variant_id,
+                  available: variantStock,
+                  required: item.quantity,
+                },
+              },
+              409
+            );
+          }
         }
       }
     }
@@ -708,18 +920,20 @@ async function handlePostSalesInvoice(databases, payload, res, error) {
       ]);
       if (existing.documents.length > 0) continue;
 
+      const movementPayload = {
+        product_id: item.product_id,
+        movement_type: "sales_invoice",
+        quantity_delta: -item.quantity,
+        source_type: "sales_invoice",
+        source_id: sales_invoice_id,
+        note: `Penjualan - ${si.invoice_number}`.slice(0, 500),
+        created_by,
+        created_at: now,
+      };
+      if (item._variant_id) movementPayload.product_variant_id = item._variant_id;
       await databases.createDocument(
         DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(),
-        {
-          product_id: item.product_id,
-          movement_type: "sales_invoice",
-          quantity_delta: -item.quantity,
-          source_type: "sales_invoice",
-          source_id: sales_invoice_id,
-          note: `Penjualan - ${si.invoice_number}`.slice(0, 500),
-          created_by,
-          created_at: now,
-        },
+        movementPayload,
         MOVEMENT_READ_LABELS.map((label) => Permission.read(Role.label(label)))
       );
 
@@ -731,6 +945,16 @@ async function handlePostSalesInvoice(databases, payload, res, error) {
         updated_by: created_by,
       });
       updatedProducts.push({ product_id: item.product_id, current_stock: newStock });
+      if (item._variant_id) {
+        const newVariantStock = movements
+          .filter((m) => (m.product_variant_id ?? null) === item._variant_id)
+          .reduce((sum, m) => sum + Number(m.quantity_delta), 0);
+        await databases.updateDocument(DATABASE_ID, VARIANTS_COLLECTION, item._variant_id, {
+          current_stock: newVariantStock,
+          updated_at: now,
+          updated_by: created_by,
+        });
+      }
     }
 
     // Journal entry
@@ -833,6 +1057,32 @@ async function handlePostSalesReturn(databases, payload, res, error) {
       }
     }
 
+    // Attach _variant data for variant-aware posting (product_variant_id opsional, NULL = tanpa varian).
+    // Validasi eksistensi + kepemilikan SEBELUM write pertama (atomic).
+    const srVariantIds = [...new Set(sr_items.map((i) => i.product_variant_id ?? null).filter(Boolean))];
+    const srVariantMap = new Map();
+    for (const vid of srVariantIds) {
+      const v = await databases.getDocument(DATABASE_ID, VARIANTS_COLLECTION, vid).catch(() => null);
+      if (v) srVariantMap.set(vid, v);
+    }
+    for (const ri of sr_items) {
+      const vid = ri.product_variant_id ?? null;
+      if (vid) {
+        if (!srVariantMap.get(vid)) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${vid} tidak ditemukan.`, product_id: ri.product_id } },
+            404
+          );
+        }
+        if (srVariantMap.get(vid).product_id !== ri.product_id) {
+          return res.json(
+            { ok: false, errors: { _form: `Varian ${vid} bukan milik produk ${ri.product_id}.` } },
+            400
+          );
+        }
+      }
+    }
+
     const si = await databases.getDocument(DATABASE_ID, SI_COLLECTION, sr.sales_invoice_id);
 
     const now = new Date().toISOString();
@@ -840,13 +1090,14 @@ async function handlePostSalesReturn(databases, payload, res, error) {
 
     // Create positive stock_movements (restore stock)
     for (const ri of sr_items) {
+      const variantId = ri.product_variant_id ?? null;
       const movements = await databases.listDocuments(DATABASE_ID, MOVEMENTS_COLLECTION, [
         Query.equal("product_id", [ri.product_id]),
         Query.limit(5000),
       ]);
       const currentStock = movements.documents.reduce((sum, m) => sum + Number(m.quantity_delta), 0);
 
-      await databases.createDocument(DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(), {
+      const movementPayload = {
         product_id: ri.product_id,
         movement_type: "sales_return",
         quantity_delta: Number(ri.quantity),
@@ -855,14 +1106,28 @@ async function handlePostSalesReturn(databases, payload, res, error) {
         note: `Retur penjualan ${sr.return_number}`,
         created_by,
         created_at: now,
-      });
+      };
+      if (variantId != null) movementPayload.product_variant_id = variantId;
+      await databases.createDocument(DATABASE_ID, MOVEMENTS_COLLECTION, ID.unique(), movementPayload);
 
       const newStock = currentStock + Number(ri.quantity);
       const prod = await databases.getDocument(DATABASE_ID, PRODUCTS_COLLECTION, ri.product_id);
       await databases.updateDocument(DATABASE_ID, PRODUCTS_COLLECTION, ri.product_id, {
         current_stock: newStock,
+        updated_at: now,
+        updated_by: created_by,
       });
       updatedProducts.push({ product_id: ri.product_id, previous_stock: currentStock, current_stock: newStock });
+      if (variantId != null) {
+        const newVariantStock = movements.documents
+          .filter((m) => (m.product_variant_id ?? null) === variantId)
+          .reduce((sum, m) => sum + Number(m.quantity_delta), 0) + Number(ri.quantity);
+        await databases.updateDocument(DATABASE_ID, VARIANTS_COLLECTION, variantId, {
+          current_stock: newVariantStock,
+          updated_at: now,
+          updated_by: created_by,
+        });
+      }
     }
 
     // Reduce SI total_amount
@@ -1005,6 +1270,9 @@ async function handlePostPayroll(databases, payload, res, error) {
     return res.json({ ok: false, errors: { _form: "postPayroll gagal: " + e.message } }, 500);
   }
 }
+
+// Diekspor untuk regression test handler-level (mock DB, tanpa Appwrite).
+export { handlePostGR, handlePostPR };
 
 export default async ({ req, res, log, error }) => {
   const env = (req && req.env) || process.env || {};
