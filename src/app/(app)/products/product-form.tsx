@@ -9,7 +9,7 @@ import type { ProductCategory, Product } from "@/lib/inventory";
 import { createVariantAction, type ProductActionState } from "./actions";
 import { useActionToast } from "@/lib/use-action-toast";
 
-const SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "XXL", "Semua Ukuran"];
+const SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "XXL", "All Size"];
 
 function suggestVariantSku(parentSku: string, size: string, color: string): string {
   const parts = [parentSku, size, color]
