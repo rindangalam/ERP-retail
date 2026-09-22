@@ -248,3 +248,173 @@ export async function cancelSalesOrder(
     return { ok: false, errors: {}, code: "cancel_so_failed" };
   }
 }
+
+export type InternalCashSOItemInput = {
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+};
+
+/**
+ * SO tunai internal untuk POS kasir butik.
+ *
+ * Perbedaan yang disengaja vs SO grosir (createSalesOrder):
+ * - Validasi ringan inline (customer, tanggal, qty/harga per item). Aturan
+ *   "satu product_id tidak boleh duplikat" dari validateSalesOrderInput
+ *   SENGAJA tidak dipakai karena keranjang POS membedakan varian — satu
+ *   product_id wajar muncul di beberapa baris varian. sales_order_items
+ *   internal tidak menyimpan product_variant_id (varian tercatat di invoice).
+ * - Langsung berstatus "confirmed" karena kasir tidak punya langkah
+ *   konfirmasi terpisah; invoice POS diterbitkan dari SO ini.
+ */
+export async function createInternalCashSO(
+  customerId: string,
+  userId: string,
+  items: InternalCashSOItemInput[],
+  orderDate: string
+): Promise<Result<SalesOrderWithItems>> {
+  const errors: Record<string, string> = {};
+  if (!customerId) errors.customer_id = "Customer wajib dipilih.";
+  if (!orderDate) errors.order_date = "Tanggal order wajib diisi.";
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(orderDate)) {
+    errors.order_date = "Format tanggal tidak valid (YYYY-MM-DD).";
+  }
+  if (!items || items.length === 0) {
+    errors.items = "Keranjang masih kosong.";
+  } else {
+    for (const item of items) {
+      if (!item.product_id) {
+        errors.items = "Ada item tanpa produk.";
+        break;
+      }
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        errors.items = "Quantity harus lebih dari 0.";
+        break;
+      }
+      if (!Number.isFinite(item.unit_price) || item.unit_price < 0) {
+        errors.items = "Harga satuan harus >= 0.";
+        break;
+      }
+    }
+  }
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+
+  const now = nowIso();
+  const soNumber = await nextSONumber(orderDate);
+  const lines = items.map((item) => ({
+    product_id: item.product_id,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    line_total: item.quantity * item.unit_price,
+  }));
+  const totalAmount = lines.reduce((sum, item) => sum + item.line_total, 0);
+
+  try {
+    const soDoc = await adminDatabases().createDocument({
+      databaseId: DATABASE_ID,
+      collectionId: SO_COLLECTION,
+      documentId: ID.unique(),
+      data: {
+        so_number: soNumber,
+        customer_id: customerId,
+        order_date: orderDate,
+        expected_date: null,
+        status: "confirmed",
+        total_amount: totalAmount,
+        notes: "SO tunai internal (POS kasir)",
+        created_by: userId,
+        created_at: now,
+      },
+      permissions: [...SO_READ, ...SO_WRITE],
+    });
+
+    const createdItemIds: string[] = [];
+    try {
+      for (const item of lines) {
+        const itemDoc = await adminDatabases().createDocument({
+          databaseId: DATABASE_ID,
+          collectionId: SO_ITEMS_COLLECTION,
+          documentId: ID.unique(),
+          data: {
+            sales_order_id: soDoc.$id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: item.line_total,
+          },
+        });
+        createdItemIds.push(itemDoc.$id);
+      }
+    } catch (itemError) {
+      for (const itemId of createdItemIds) {
+        try {
+          await adminDatabases().deleteDocument(DATABASE_ID, SO_ITEMS_COLLECTION, itemId);
+        } catch {
+          // rollback best-effort
+        }
+      }
+      try {
+        await adminDatabases().updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: SO_COLLECTION,
+          documentId: soDoc.$id,
+          data: { status: "cancelled", updated_by: userId, updated_at: nowIso() },
+        });
+      } catch {
+        // rollback best-effort
+      }
+      throw itemError;
+    }
+
+    const customers = await listCustomers({ includeInactive: true });
+    const customerName = customers.find((c) => c.$id === customerId)?.name ?? "—";
+
+    const so = soDoc as unknown as SalesOrder;
+    return {
+      ok: true,
+      data: {
+        ...toPlain(so),
+        customer_name: customerName,
+        items: lines.map((item, i) =>
+          toPlain({ $id: createdItemIds[i] ?? "", ...item })
+        ) as unknown as SalesOrderItem[],
+      },
+    };
+  } catch (error) {
+    console.error("createInternalCashSO failed:", error);
+    return {
+      ok: false,
+      errors: { _form: "Gagal membuat sales order internal." },
+      code: "create_internal_so_failed",
+    };
+  }
+}
+
+/**
+ * Pembatalan khusus SO internal kasir: mengizinkan draft → cancelled DAN
+ * confirmed → cancelled (SO internal dibuat langsung confirmed).
+ * JANGAN dipakai untuk SO grosir — cancelSalesOrder tetap draft-only agar
+ * perilaku grosir tidak berubah.
+ */
+export async function cancelInternalCashSO(
+  id: string,
+  userId: string
+): Promise<Result<SalesOrder>> {
+  try {
+    const so = await adminDatabases().getDocument(DATABASE_ID, SO_COLLECTION, id);
+    const status = (so as unknown as SalesOrder).status;
+    if (status !== "draft" && status !== "confirmed") {
+      return { ok: false, errors: {}, code: "not_cancellable" };
+    }
+    const updated = await adminDatabases().updateDocument({
+      databaseId: DATABASE_ID,
+      collectionId: SO_COLLECTION,
+      documentId: id,
+      data: { status: "cancelled", updated_by: userId, updated_at: nowIso() },
+    });
+    return { ok: true, data: toPlain(updated as unknown as SalesOrder) };
+  } catch (error) {
+    console.error("cancelInternalCashSO failed:", error);
+    return { ok: false, errors: {}, code: "cancel_internal_so_failed" };
+  }
+}

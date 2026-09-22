@@ -47,6 +47,7 @@ export type SalesInvoiceItem = AppwriteDoc & {
   sales_invoice_id: string;
   sales_order_item_id: string | null;
   product_id: string;
+  product_variant_id: string | null;
   quantity: number;
   unit_price: number;
   line_total: number;
@@ -116,7 +117,12 @@ export async function listSalesInvoices(): Promise<SalesInvoiceWithItems[]> {
       so_number: soMap.get(si.sales_order_id) ?? "—",
       items: items.map((item) => {
         const p = productMap.get(item.product_id);
-        return { ...toPlain(item), product_name: p?.name ?? "—", sku: p?.sku ?? "" };
+        return {
+          ...toPlain(item),
+          product_variant_id: (item as unknown as { product_variant_id?: string | null }).product_variant_id ?? null,
+          product_name: p?.name ?? "—",
+          sku: p?.sku ?? "",
+        };
       }),
     });
   }
@@ -145,7 +151,12 @@ export async function getSalesInvoice(id: string): Promise<SalesInvoiceWithItems
       so_number: soMap.get(si.sales_order_id) ?? "—",
       items: items.map((item) => {
         const p = productMap.get(item.product_id);
-        return { ...toPlain(item), product_name: p?.name ?? "—", sku: p?.sku ?? "" };
+        return {
+          ...toPlain(item),
+          product_variant_id: (item as unknown as { product_variant_id?: string | null }).product_variant_id ?? null,
+          product_name: p?.name ?? "—",
+          sku: p?.sku ?? "",
+        };
       }),
     };
   } catch {
@@ -243,6 +254,7 @@ export async function createSalesInvoice(
             sales_invoice_id: siDoc.$id,
             sales_order_item_id: item.sales_order_item_id || null,
             product_id: item.product_id,
+            product_variant_id: item.product_variant_id?.trim() || null,
             quantity: item.quantity,
             unit_price: item.unit_price,
             line_total: item.quantity * item.unit_price,
@@ -283,6 +295,7 @@ export async function createSalesInvoice(
             sales_invoice_id: siDoc.$id,
             sales_order_item_id: item.sales_order_item_id || null,
             product_id: item.product_id,
+            product_variant_id: item.product_variant_id?.trim() || null,
             quantity: item.quantity,
             unit_price: item.unit_price,
             line_total: item.quantity * item.unit_price,
