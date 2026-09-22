@@ -22,7 +22,11 @@ export const metadata: Metadata = {
   description: "Sistem ERP Retail — Inventori, Pembelian, Penjualan, Keuangan, Payroll",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="id"
