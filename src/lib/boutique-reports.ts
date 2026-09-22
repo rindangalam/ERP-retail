@@ -21,7 +21,11 @@ const VARIANTS_COLLECTION = "product_variants";
 //     dengan chunk 30 ID per round-trip (1 query melayani 30 invoice).
 //  3. Scan koleksi products + product_variants masing-masing 1x (paginasi),
 //     lalu join + agregat di memori.
-// Total round-trip konstan terhadap jumlah invoice (±4-6 query), bukan O(N).
+// Total round-trip jujur (tumbuh terhadap N, bukan konstan):
+//  ≈ ceil(N/100) [paginasi invoice periode via listAll] +
+//    ceil(N/30) [chunk items, tiap chunk bisa paginasi lagi via listAll
+//    bila item padat] + konstanta [scan products + variants, masing-masing
+//    ceil(P/100) + ceil(V/100)]. Bukan "±4-6 query".
 // Chunk 30 mengikuti batas batching yang dipakai reports.ts.
 // ---------------------------------------------------------------------------
 
@@ -250,6 +254,11 @@ export async function getMargin(from: string, to: string): Promise<MarginData> {
 
   // Harga jual dari item.unit_price/line_total; cost dari produk (varian
   // tidak menyimpan cost — hanya sell_price opsional).
+  // CATATAN: revenue di sini memakai line_total per item = SEBELUM diskon
+  // header nota (sales_invoices.discount). Akibatnya margin terlihat lebih
+  // besar saat ada diskon nota. Alokasi diskon proporsional per item adalah
+  // perubahan perilaku dan sengaja di luar scope — label UI menegaskan
+  // "Margin kotor (sebelum diskon nota)".
   let revenue = 0;
   let cost = 0;
   let itemsSold = 0;

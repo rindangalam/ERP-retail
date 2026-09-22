@@ -12,6 +12,7 @@ import {
   postSalesInvoice,
 } from "@/lib/sales-invoice";
 import { createSalesPayment } from "@/lib/sales-payment";
+import { getWIBDateString } from "@/lib/wib-date";
 
 export type QuickSaleItemInput = {
   product_id: string;
@@ -38,7 +39,7 @@ export type QuickSaleResult =
     };
 
 function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getWIBDateString();
 }
 
 function toIdr(value: number): string {
