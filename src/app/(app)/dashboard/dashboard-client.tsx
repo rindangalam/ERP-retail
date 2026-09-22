@@ -160,6 +160,7 @@ function StatCell({
 export function DashboardClient({ summary, role }: Props) {
   const showFinance = role === "admin" || role === "finance";
   const showInventory = role === "admin" || role === "warehouse";
+  const showKasir = role === "admin" || role === "sales";
   const reduce = useReducedMotion();
 
   const last7 = summary.revenueSeries.slice(-7);
@@ -179,6 +180,7 @@ export function DashboardClient({ summary, role }: Props) {
   }
   if (role === "admin" || role === "sales") {
     quickLinks.push({ href: "/sales-invoices", label: "Penjualan", icon: Receipt }, { href: "/customers", label: "Customer", icon: Users });
+    quickLinks.push({ href: "/pos", label: "Kasir", icon: ShoppingCart }, { href: "/reports/butik", label: "Laporan Butik", icon: TrendingUp });
   }
   if (showFinance) {
     quickLinks.push(
@@ -216,6 +218,16 @@ export function DashboardClient({ summary, role }: Props) {
           icon={Boxes}
           delay={0.05}
         />
+        {showKasir && (
+          <StatCell
+            label="Omzet Hari Ini"
+            value={summary.todayOmzet}
+            format={idrShort}
+            sub={summary.todayInvoiceCount > 0 ? `${summary.todayInvoiceCount} transaksi · ${summary.todayItemsSold} pcs` : "Belum ada transaksi"}
+            icon={ShoppingCart}
+            delay={0.07}
+          />
+        )}
         {showFinance && (
           <>
             <StatCell
@@ -402,6 +414,43 @@ export function DashboardClient({ summary, role }: Props) {
                   <span className="block truncate text-xs font-medium">{p.name}</span>
                   <span className="block text-[10px] text-muted-foreground">
                     Stok {p.current_stock} · min {p.min_stock}
+                  </span>
+                </span>
+                <Badge variant="warning">Menipis</Badge>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {(showInventory || showKasir) && summary.lowStockVariants.length > 0 && (
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.37, ease: EASE }}
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold tracking-tight">Stok Varian Menipis</h2>
+            <Link href="/reports/butik" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+              Laporan Butik
+            </Link>
+          </div>
+          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-card">
+            {summary.lowStockVariants.map((v, i) => (
+              <motion.div
+                key={v.variant_id}
+                initial={reduce ? false : { opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25, delay: 0.42 + i * 0.05, ease: EASE }}
+                className="flex items-center gap-3 px-4 py-2.5"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                  <Boxes className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-medium">{v.product_name}</span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {[v.size, v.color].filter(Boolean).join(" · ") || "Tanpa varian"} · {v.sku} · Stok {v.current_stock} · min {v.min_stock}
                   </span>
                 </span>
                 <Badge variant="warning">Menipis</Badge>

@@ -2,6 +2,7 @@ import "server-only";
 import { Query } from "node-appwrite";
 import { adminDatabases } from "./appwrite-server";
 import { getBalanceSheet } from "./reports";
+import { getLowStockVariants, getTodaySales, type LowStockVariant } from "./boutique-reports";
 import { listCashBankAccounts } from "./cash-bank";
 import { listCategories, listProducts } from "./inventory";
 import { listEmployees } from "./employee";
@@ -21,6 +22,10 @@ export type DashboardSummary = {
   recentEntries: { entry_number: string; entry_date: string; description: string; source_type: string }[];
   revenueSeries: { date: string; amount: number }[];
   categoryDistribution: { name: string; count: number }[];
+  todayOmzet: number;
+  todayInvoiceCount: number;
+  todayItemsSold: number;
+  lowStockVariants: LowStockVariant[];
 };
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
@@ -104,6 +109,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     revenueSeries.push({ date: key, amount: dayMap.get(key) ?? 0 });
   }
 
+  // Omzet hari ini + varian stok menipis (reuse boutique-reports, tanpa duplikasi query)
+  const [todaySales, lowStockVariants] = await Promise.all([
+    getTodaySales(today),
+    getLowStockVariants(),
+  ]);
+
   // Product distribution by category
   const categories = await listCategories();
   const categoryMap = new Map(categories.map((c) => [c.$id, c.name]));
@@ -131,5 +142,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     recentEntries,
     revenueSeries,
     categoryDistribution,
+    todayOmzet: todaySales.total,
+    todayInvoiceCount: todaySales.count,
+    todayItemsSold: todaySales.itemsSold,
+    lowStockVariants: lowStockVariants.slice(0, 5),
   };
 }
