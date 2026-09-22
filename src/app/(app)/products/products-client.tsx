@@ -17,6 +17,7 @@ import { MotionButton } from "@/components/motion-button";
 import { EmptyState } from "@/components/empty-state";
 import { Boxes as BoxesIconEmpty } from "lucide-react";
 import type { Product, ProductCategory } from "@/lib/inventory";
+import type { ProductVariant } from "@/lib/variants";
 import {
   createProductAction,
   toggleProductActiveAction,
@@ -27,6 +28,7 @@ import { ProductForm } from "./product-form";
 type ProductsClientProps = {
   products: Product[];
   categories: ProductCategory[];
+  variantsByProduct?: Record<string, ProductVariant[]>;
 };
 
 function formatCurrency(value: number): string {
@@ -71,7 +73,7 @@ function tempProductFromFormData(formData: FormData): Product {
   };
 }
 
-export function ProductsClient({ products, categories }: ProductsClientProps) {
+export function ProductsClient({ products, categories, variantsByProduct }: ProductsClientProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -266,6 +268,50 @@ export function ProductsClient({ products, categories }: ProductsClientProps) {
           setOpen(true);
         }}
       />
+      {filtered.some(
+        (p) => (variantsByProduct?.[p.$id]?.length ?? 0) > 0
+      ) ? (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold">Varian produk</h2>
+          {filtered.map((p) => {
+            const vs = variantsByProduct?.[p.$id] ?? [];
+            if (vs.length === 0) return null;
+            return (
+              <div key={`variants-${p.$id}`} className="rounded-md border p-3">
+                <div className="text-sm font-medium">
+                  {p.name}{" "}
+                  <span className="font-mono text-xs text-muted-foreground">{p.sku}</span>
+                </div>
+                <ul className="mt-2 divide-y divide-border">
+                  {vs.map((v) => (
+                    <li
+                      key={v.$id}
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 text-sm"
+                    >
+                      <span className="font-semibold">{v.size || "—"}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span>{v.color || "—"}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="font-mono text-xs">{v.sku}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        stok {v.current_stock}/{v.min_stock}
+                      </span>
+                      {v.current_stock < v.min_stock ? (
+                        <Badge variant="outline" className="text-destructive">Menipis</Badge>
+                      ) : null}
+                      {!v.is_active ? (
+                        <Badge variant="outline" className="text-muted-foreground">Nonaktif</Badge>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-[11px] text-muted-foreground">Stok varian read-only.</p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl">

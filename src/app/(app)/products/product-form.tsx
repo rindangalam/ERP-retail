@@ -1,13 +1,188 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ProductCategory, Product } from "@/lib/inventory";
-import { type ProductActionState } from "./actions";
+import { createVariantAction, type ProductActionState } from "./actions";
 import { useActionToast } from "@/lib/use-action-toast";
+
+const SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "XXL", "All Size"];
+
+function suggestVariantSku(parentSku: string, size: string, color: string): string {
+  const parts = [parentSku, size, color]
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (parts.length === 0) return "";
+  return parts
+    .join("-")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function VariantSection({ product }: { product: Product }) {
+  const router = useRouter();
+  const [size, setSize] = useState("");
+  const [color, setColor] = useState("");
+  const [sku, setSku] = useState("");
+  const [skuManual, setSkuManual] = useState(false);
+
+  const variantAction = async (prevState: ProductActionState, formData: FormData) => {
+    const res = await createVariantAction(prevState, formData);
+    if (res?.ok) {
+      setSize("");
+      setColor("");
+      setSku("");
+      setSkuManual(false);
+      router.refresh();
+    }
+    return res;
+  };
+  const [vState, vFormAction, vPending] = useActionState(variantAction, undefined);
+
+  useActionToast(vState, "Varian dibuat");
+
+  const suggestion = useMemo(
+    () => suggestVariantSku(product.sku ?? "", size, color),
+    [product.sku, size, color]
+  );
+
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value;
+    setSize(next);
+    if (!skuManual) {
+      setSku(suggestVariantSku(product.sku ?? "", next, color));
+    }
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value;
+    setColor(next);
+    if (!skuManual) {
+      setSku(suggestVariantSku(product.sku ?? "", size, next));
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <div>
+        <h3 className="text-sm font-semibold">Varian</h3>
+        <p className="text-xs text-muted-foreground">
+          Tambah varian size/warna. Stok varian hanya terbaca di sini.
+        </p>
+      </div>
+      <form action={vFormAction} className="space-y-3">
+        <input type="hidden" name="product_id" value={product.$id} />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="variant-size" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Size</Label>
+            <Input
+              id="variant-size"
+              name="size"
+              value={size}
+              onChange={handleSizeChange}
+              placeholder="M"
+              list="variant-size-preset"
+              autoComplete="off"
+            />
+            <datalist id="variant-size-preset">
+              {SIZE_PRESETS.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+            {vState?.errors?.size ? (
+              <p role="alert" className="text-xs text-destructive">{vState.errors.size}</p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="variant-color" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Warna</Label>
+            <Input
+              id="variant-color"
+              name="color"
+              value={color}
+              onChange={handleColorChange}
+              placeholder="Hitam"
+              autoComplete="off"
+            />
+            {vState?.errors?.color ? (
+              <p role="alert" className="text-xs text-destructive">{vState.errors.color}</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="variant-sku" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">SKU varian</Label>
+          <Input
+            id="variant-sku"
+            name="sku"
+            value={sku}
+            onChange={(e) => {
+              setSku(e.target.value);
+              setSkuManual(true);
+            }}
+            placeholder={suggestion || `${product.sku}-SIZE-WARNA`}
+          />
+          {vState?.errors?.sku ? (
+            <p role="alert" className="text-xs text-destructive">{vState.errors.sku}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="variant-barcode" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Barcode (opsional)</Label>
+          <Input id="variant-barcode" name="barcode" placeholder="Opsional" />
+          {vState?.errors?.barcode ? (
+            <p role="alert" className="text-xs text-destructive">{vState.errors.barcode}</p>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="variant-sell_price" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Harga jual (kosong = ikut produk)</Label>
+            <Input
+              id="variant-sell_price"
+              name="sell_price"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder={`Ikut produk (${product.sell_price})`}
+            />
+            {vState?.errors?.sell_price ? (
+              <p role="alert" className="text-xs text-destructive">{vState.errors.sell_price}</p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="variant-min_stock" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Stok minimum</Label>
+            <Input
+              id="variant-min_stock"
+              name="min_stock"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue="0"
+              required
+            />
+            {vState?.errors?.min_stock ? (
+              <p role="alert" className="text-xs text-destructive">{vState.errors.min_stock}</p>
+            ) : null}
+          </div>
+        </div>
+
+        {vState?.message && !vState.ok ? (
+          <p role="alert" className="text-xs text-destructive">{vState.message}</p>
+        ) : null}
+
+        <div className="flex justify-end">
+          <Button type="submit" variant="outline" disabled={vPending}>
+            {vPending ? "Menyimpan..." : "Tambah Varian"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 type ProductFormProps = {
   mode: "create" | "edit";
@@ -97,6 +272,7 @@ export function ProductForm({
   const activeCategories = categories.filter((c) => c.is_active);
 
   return (
+    <div className="space-y-4">
     <form action={formAction} className="space-y-4">
       {product ? <input type="hidden" name="id" value={product.$id} /> : null}
 
@@ -229,5 +405,7 @@ export function ProductForm({
         </Button>
       </div>
     </form>
+    {mode === "edit" && product ? <VariantSection product={product} /> : null}
+    </div>
   );
 }
