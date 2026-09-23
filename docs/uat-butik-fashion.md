@@ -29,6 +29,28 @@ verifikasi memakai test otomatis yang ada + verifikasi statis (baca kode).
 
 Tidak ada skenario terbuka — tidak ada fix kode di Task 7.
 
+## 7. Hasil UAT live (2026-09-23, database `erp` Appwrite)
+
+Rantai dummy end-to-end dengan data bertanda `UAT-DUMMY`, varian `BLS-001-M-HITAM`
+(produk `BLS-001`, customer `UMUM`, supplier `SUP-UAT`):
+
+| Langkah | Dokumen | Hasil |
+|---|---|---|
+| PO 10 × 85.000 | `PO-20260923-001` | `ordered`, total 850.000 |
+| GR 10 pcs varian + posting Function | `GR-20260923-001` | `posted`; stok varian 0 → **10**, induk 0 → 10 |
+| Jurnal GR | `JE-009` | Debit = Kredit = **850.000** (Persediaan / Hutang Usaha) |
+| SO internal + invoice 2 × 149.000 + posting | `SO-20260923-001`, `INV-20260923-001` | status `unpaid` → stok 10 → **8** |
+| Jurnal invoice | `JE-010` | Debit = Kredit = **298.000** (Piutang / Pendapatan) |
+| Payment tunai 298.000 | — | invoice `unpaid` → **`paid`** |
+| Retur 1 pcs + posting | `SR-20260923-001` | `posted`; stok 8 → **9**, total invoice 298.000 → **149.000** |
+| Agregat akhir | — | omzet hari ini **149.000**, margin (149.000−85.000)×2 = **128.000**, jurnal di DB 8 → **10** |
+
+Semua gate lolos. Dua temuan dicatat sebagai follow-up (bukan blocker UAT):
+
+1. **Retur penjualan tidak membuat jurnal** (`handlePostSalesReturn` hanya mengembalikan stok + menurunkan total invoice). Omzet (berbasis invoice) benar 149.000, tapi Laba Rugi (berbasis jurnal) masih mencatat pendapatan 298.000. Perlu keputusan akuntansi owner sebelum dibuatkan jurnal retur.
+2. **Kelebihan bayar pasca-retur** (bayar 298.000 vs total baru 149.000) harus di-refund manual di luar sistem — aplikasi belum punya alur refund.
+3. Catatan teknis: `responseBody` eksekusi Function kosong bila dibaca via REST mentah, tapi **terisi normal via `node-appwrite` SDK** (yang dipakai aplikasi) — aplikasi tidak terdampak.
+
 ## 2A. Rantai varian utuh (verifikasi statis + test, tanpa Appwrite live)
 
 Contoh angka (dihitung dari tanda delta kode, bukan live): terima 10 pcs
