@@ -20,9 +20,15 @@ type GRRow = {
   purchase_order_item_id: string;
   product_id: string;
   product_variant_id: string | null;
-  qty: number;
+  // Teks agar bisa diketik bebas; diparse saat filter/submit.
+  qty: string;
   po_qty: number;
 };
+
+function toNum(v: string): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
 
 // Label dropdown varian: SIZE · Warna · SKU · stok (pola pos-client).
 function variantOptionLabel(v: ProductVariant): string {
@@ -51,7 +57,7 @@ export function GoodsReceiptForm({ pos, variantsByProduct }: Props) {
         purchase_order_item_id: item.$id,
         product_id: item.product_id,
         product_variant_id: null,
-        qty: 0,
+        qty: "",
         po_qty: item.quantity,
       }))
     );
@@ -75,7 +81,7 @@ export function GoodsReceiptForm({ pos, variantsByProduct }: Props) {
       return;
     }
 
-    const received = items.filter((item) => item.qty > 0);
+    const received = items.filter((item) => toNum(item.qty) > 0);
     if (received.length === 0) {
       setFieldErrors({ items: "Minimal satu item dengan qty > 0." });
       return;
@@ -99,7 +105,7 @@ export function GoodsReceiptForm({ pos, variantsByProduct }: Props) {
           purchase_order_item_id: item.purchase_order_item_id,
           product_id: item.product_id,
           product_variant_id: item.product_variant_id ?? null,
-          quantity_received: item.qty,
+          quantity_received: toNum(item.qty),
         }))
       )
     );
@@ -206,7 +212,7 @@ export function GoodsReceiptForm({ pos, variantsByProduct }: Props) {
                             value={item.qty}
                             onChange={(e) => {
                               const newItems = [...items];
-                              newItems[idx].qty = Number(e.target.value);
+                              newItems[idx].qty = e.target.value;
                               setItems(newItems);
                             }}
                             className="w-24 text-right ml-auto"

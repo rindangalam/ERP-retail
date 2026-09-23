@@ -23,8 +23,10 @@ const SELECT_CLASS =
 type ItemRow = {
   key: string;
   product_id: string;
-  quantity: number;
-  unit_price: number;
+  // Disimpan sebagai teks agar bisa diketik bebas (termasuk dikosongkan);
+  // diparse ke angka saat hitung total dan submit.
+  quantity: string;
+  unit_price: string;
 };
 
 type PurchaseOrderFormProps = {
@@ -48,7 +50,7 @@ function today(): string {
 export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [items, setItems] = useState<ItemRow[]>([
-    { key: crypto.randomUUID(), product_id: "", quantity: 1, unit_price: 0 },
+    { key: crypto.randomUUID(), product_id: "", quantity: "1", unit_price: "" },
   ]);
   const [state, setState] = useState<PurchaseOrderActionState>(undefined);
   const [pending, setPending] = useState(false);
@@ -65,15 +67,20 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
     }
   }, [state, router]);
 
+  const toNum = (v: string) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   const totalAmount = items.reduce(
-    (sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0),
+    (sum, item) => sum + toNum(item.quantity) * toNum(item.unit_price),
     0
   );
 
   const addRow = () => {
     setItems((prev) => [
       ...prev,
-      { key: crypto.randomUUID(), product_id: "", quantity: 1, unit_price: 0 },
+      { key: crypto.randomUUID(), product_id: "", quantity: "1", unit_price: "" },
     ]);
   };
 
@@ -90,8 +97,8 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
     const formData = new FormData(event.currentTarget);
     const payload = items.map((item) => ({
       product_id: item.product_id,
-      quantity: Number(item.quantity),
-      unit_price: Number(item.unit_price),
+      quantity: toNum(item.quantity),
+      unit_price: toNum(item.unit_price),
     }));
     const form = new FormData();
     for (const [key, value] of formData.entries()) {
@@ -199,7 +206,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
                       min="1"
                       step="1"
                       value={item.quantity}
-                      onChange={(e) => updateRow(item.key, { quantity: Number(e.target.value) })}
+                      onChange={(e) => updateRow(item.key, { quantity: e.target.value })}
                     />
                   </TableCell>
                   <TableCell>
@@ -208,12 +215,13 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
                       type="number"
                       min="0"
                       step="1"
+                      placeholder="0"
                       value={item.unit_price}
-                      onChange={(e) => updateRow(item.key, { unit_price: Number(e.target.value) })}
+                      onChange={(e) => updateRow(item.key, { unit_price: e.target.value })}
                     />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency((item.quantity || 0) * (item.unit_price || 0))}
+                    {formatCurrency(toNum(item.quantity) * toNum(item.unit_price))}
                   </TableCell>
                   <TableCell>
                     <Button
