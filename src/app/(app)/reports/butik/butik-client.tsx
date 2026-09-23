@@ -69,7 +69,7 @@ export function ButikClient({ today, omzet, bestSellers, lowStock, margin }: Pro
         </div>
 
         <div className="rounded-lg border border-border bg-card shadow-card p-4">
-          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Margin Periode</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Margin kotor (sebelum diskon nota)</h3>
           <p className="text-[10px] text-muted-foreground font-mono">{margin.from_date} s/d {margin.to_date}</p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
             <div>Pendapatan:</div>

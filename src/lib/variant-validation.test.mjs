@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { validateVariantInput } from "./variant-validation.ts";
+import { isVariantDuplicateError, validateVariantInput } from "./variant-validation.ts";
 
 describe("validateVariantInput", () => {
   it("menolak size+color kosong bersamaan", () => {
@@ -50,5 +50,24 @@ describe("validateVariantInput", () => {
       min_stock: 2,
     });
     assert.equal(result.ok, true);
+  });
+});
+
+describe("isVariantDuplicateError", () => {
+  it("memetakan error sku duplikat ke field sku", () => {
+    assert.deepEqual(isVariantDuplicateError(new Error("Document with SKU already exists")), {
+      field: "sku",
+    });
+  });
+
+  it("memetakan error barcode duplikat ke field barcode", () => {
+    assert.deepEqual(
+      isVariantDuplicateError(new Error('Unique constraint violated: attribute "barcode"')),
+      { field: "barcode" },
+    );
+  });
+
+  it("mengembalikan null untuk error non-duplikat", () => {
+    assert.equal(isVariantDuplicateError(new Error("Network timeout")), null);
   });
 });

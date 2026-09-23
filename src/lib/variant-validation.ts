@@ -10,6 +10,15 @@ export type VariantInput = {
 
 export type ValidationResult = { ok: true } | { ok: false; errors: Record<string, string> };
 
+// Pemeta murni pesan error Appwrite → field (sku vs barcode), pola
+// isDuplicateError di src/lib/inventory.ts. Murni (tanpa DB) agar bisa
+// di-unit-test; dipakai createVariant untuk diskriminasi race unique index.
+export function isVariantDuplicateError(error: unknown): { field: "sku" | "barcode" } | null {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!/unique|duplicate|already exists/i.test(message)) return null;
+  return /barcode/i.test(message) ? { field: "barcode" } : { field: "sku" };
+}
+
 export function validateVariantInput(i: VariantInput): ValidationResult {
   const errors: Record<string, string> = {};
 
@@ -20,7 +29,7 @@ export function validateVariantInput(i: VariantInput): ValidationResult {
   const size = i.size?.trim() ?? "";
   const color = i.color?.trim() ?? "";
   if (!size && !color) {
-    errors.size = "Size atau warna minimal satu harus diisi.";
+    errors.size = "Ukuran atau warna minimal satu harus diisi.";
   }
 
   if (!i.sku?.trim()) {

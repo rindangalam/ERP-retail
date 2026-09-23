@@ -1,3 +1,5 @@
+import { getVariantGuardError } from "./core.js";
+
 /**
  * Validate a sales invoice posting request. Returns validated payload or errors.
  */
@@ -41,6 +43,8 @@ export function buildSalesInvoiceJournalPlan(invoice, items, coa_map, created_by
   const allowOverride = options.allowOverride ?? invoice?.stock_override ?? false;
   const lookupVariant = (id) =>
     variantInfos instanceof Map ? variantInfos.get(id) : variantInfos[id];
+  // Unifikasi kepemilikan via getVariantGuardError lenient (tak dikenal = skip,
+  // preservasi perilaku builder lama); cek stok varian tetap lokal di bawah.
 
   const now = new Date().toISOString();
   const errors = {};
@@ -59,12 +63,15 @@ export function buildSalesInvoiceJournalPlan(invoice, items, coa_map, created_by
     const variantId = item.product_variant_id ?? null;
     const delta = -(qty);
     if (variantId != null) {
+      const guard = getVariantGuardError(variantId, item.product_id, variantInfos, {
+        strictExistence: false,
+      });
+      if (guard) {
+        errors[`${prefix}.product_variant_id`] = guard.message;
+        return;
+      }
       const info = lookupVariant(variantId);
       if (info) {
-        if (info.product_id !== item.product_id) {
-          errors[`${prefix}.product_variant_id`] = `Varian ${variantId} bukan milik produk ${item.product_id}.`;
-          return;
-        }
         const available = Number(info.current_stock);
         if (!allowOverride && Number.isFinite(available) && available < qty) {
           errors[`${prefix}.product_variant_id`] =

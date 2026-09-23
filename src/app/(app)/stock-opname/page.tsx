@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/dal";
 import { listOpnames, listOpnameItemsFor } from "@/lib/opname";
 import { listProducts } from "@/lib/inventory";
-import { listVariants, type ProductVariant } from "@/lib/variants";
+import { listVariantsByProductIds, type ProductVariant } from "@/lib/variants";
 import { StockOpnameClient } from "./stock-opname-client";
 
 export const dynamic = "force-dynamic";
@@ -17,19 +17,15 @@ export default async function StockOpnamePage() {
   const items = await listOpnameItemsFor(opnames.map((o) => o.$id));
 
   // Pasok varian aktif per produk untuk opname level-varian (pola pos/page.tsx).
-  const variantEntries = await Promise.all(
-    products.map(async (p) => {
-      try {
-        const vs = (await listVariants(p.$id)).filter((v) => v.is_active);
-        return [p.$id, vs] as [string, ProductVariant[]];
-      } catch {
-        return [p.$id, []] as [string, ProductVariant[]];
-      }
-    }),
-  );
-  const variantsByProduct: Record<string, ProductVariant[]> = {};
-  for (const [id, vs] of variantEntries) {
-    if (vs.length > 0) variantsByProduct[id] = vs;
+  let variantsByProduct: Record<string, ProductVariant[]> = {};
+  try {
+    const grouped = await listVariantsByProductIds(products.map((p) => p.$id));
+    for (const [id, vs] of Object.entries(grouped)) {
+      const active = vs.filter((v) => v.is_active);
+      if (active.length > 0) variantsByProduct[id] = active;
+    }
+  } catch {
+    variantsByProduct = {};
   }
 
   return <StockOpnameClient opnames={opnames} items={items} products={products} variantsByProduct={variantsByProduct} />;

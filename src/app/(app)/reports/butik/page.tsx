@@ -6,6 +6,7 @@ import {
   getTodayOmzet,
 } from "@/lib/boutique-reports";
 import { ButikClient } from "./butik-client";
+import { getWIBDateString } from "@/lib/wib-date";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function ButikPage({
   await requireRole(["admin", "sales"]);
 
   const sp = await searchParams;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getWIBDateString();
   const to = sp.to || today;
   const from = sp.from || `${to.slice(0, 7)}-01`;
 

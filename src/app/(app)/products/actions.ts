@@ -124,9 +124,10 @@ export async function createVariantAction(
     return { ok: true, message: "Varian dibuat." };
   }
 
+  const hasFieldErrors = Object.keys(result.errors).length > 0;
   return {
     ok: false,
     errors: result.errors,
-    message: "Gagal menyimpan varian.",
+    message: hasFieldErrors ? undefined : "Gagal menyimpan varian.",
   };
 }

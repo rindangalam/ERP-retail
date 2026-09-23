@@ -3,6 +3,7 @@ import { Query } from "node-appwrite";
 import { adminDatabases } from "./appwrite-server";
 import { getBalanceSheet } from "./reports";
 import { getLowStockVariants, getTodaySales, type LowStockVariant } from "./boutique-reports";
+import { getWIBDateString } from "./wib-date";
 import { listCashBankAccounts } from "./cash-bank";
 import { listCategories, listProducts } from "./inventory";
 import { listEmployees } from "./employee";
@@ -29,7 +30,7 @@ export type DashboardSummary = {
 };
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getWIBDateString();
 
   // Balance sheet (assets, liabilities, equity)
   const bs = await getBalanceSheet(today);
@@ -85,27 +86,35 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     source_type: e.source_type,
   }));
 
-  // 30-day revenue trend from sales invoices
+  // 30-day revenue trend from sales invoices (WIB).
+  // Dipaginasi ala listAll boutique-reports agar tidak terpotong diam-diam
+  // saat invoice 30 hari > 500 dokumen.
   const revenueSeries: { date: string; amount: number }[] = [];
   const dayMap = new Map<string, number>();
-  const since = new Date();
-  since.setDate(since.getDate() - 29);
-  since.setHours(0, 0, 0, 0);
-  const sinceIso = since.toISOString();
-  const invoices = await db.listDocuments(DATABASE_ID, "sales_invoices", [
-    Query.greaterThanEqual("invoice_date", sinceIso.slice(0, 10)),
-    Query.limit(500),
-  ]);
-  for (const inv of invoices.documents) {
-    const i = inv as unknown as { invoice_date: string; total_amount: number; status: string };
-    if (i.status === "cancelled") continue;
-    const d = i.invoice_date.slice(0, 10);
-    dayMap.set(d, (dayMap.get(d) ?? 0) + Number(i.total_amount ?? 0));
-  }
+  const wibKeys: string[] = [];
   for (let k = 29; k >= 0; k--) {
     const d = new Date();
     d.setDate(d.getDate() - k);
-    const key = d.toISOString().slice(0, 10);
+    wibKeys.push(getWIBDateString(d));
+  }
+  const sinceStr = wibKeys[0];
+  let invOffset = 0;
+  for (;;) {
+    const page = await db.listDocuments(DATABASE_ID, "sales_invoices", [
+      Query.greaterThanEqual("invoice_date", sinceStr),
+      Query.limit(100),
+      Query.offset(invOffset),
+    ]);
+    for (const inv of page.documents) {
+      const i = inv as unknown as { invoice_date: string; total_amount: number; status: string };
+      if (i.status === "cancelled") continue;
+      const d = i.invoice_date.slice(0, 10);
+      dayMap.set(d, (dayMap.get(d) ?? 0) + Number(i.total_amount ?? 0));
+    }
+    if (page.documents.length < 100) break;
+    invOffset += 100;
+  }
+  for (const key of wibKeys) {
     revenueSeries.push({ date: key, amount: dayMap.get(key) ?? 0 });
   }
 

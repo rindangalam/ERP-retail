@@ -29,6 +29,9 @@ function VariantSection({ product }: { product: Product }) {
   const [color, setColor] = useState("");
   const [sku, setSku] = useState("");
   const [skuManual, setSkuManual] = useState(false);
+  const [barcode, setBarcode] = useState("");
+  const [sellPrice, setSellPrice] = useState("");
+  const [minStock, setMinStock] = useState("0");
 
   const variantAction = async (prevState: ProductActionState, formData: FormData) => {
     const res = await createVariantAction(prevState, formData);
@@ -37,6 +40,9 @@ function VariantSection({ product }: { product: Product }) {
       setColor("");
       setSku("");
       setSkuManual(false);
+      setBarcode("");
+      setSellPrice("");
+      setMinStock("0");
       router.refresh();
     }
     return res;
@@ -71,14 +77,14 @@ function VariantSection({ product }: { product: Product }) {
       <div>
         <h3 className="text-sm font-semibold">Varian</h3>
         <p className="text-xs text-muted-foreground">
-          Tambah varian size/warna. Stok varian hanya terbaca di sini.
+          Tambah varian ukuran/warna. Stok varian hanya bisa dibaca di sini.
         </p>
       </div>
       <form action={vFormAction} className="space-y-3">
         <input type="hidden" name="product_id" value={product.$id} />
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="variant-size" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Size</Label>
+            <Label htmlFor="variant-size" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Ukuran</Label>
             <Input
               id="variant-size"
               name="size"
@@ -123,7 +129,7 @@ function VariantSection({ product }: { product: Product }) {
               setSku(e.target.value);
               setSkuManual(true);
             }}
-            placeholder={suggestion || `${product.sku}-SIZE-WARNA`}
+            placeholder={suggestion || `${product.sku}-UKURAN-WARNA`}
           />
           {vState?.errors?.sku ? (
             <p role="alert" className="text-xs text-destructive">{vState.errors.sku}</p>
@@ -132,7 +138,7 @@ function VariantSection({ product }: { product: Product }) {
 
         <div className="space-y-1.5">
           <Label htmlFor="variant-barcode" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Barcode (opsional)</Label>
-          <Input id="variant-barcode" name="barcode" placeholder="Opsional" />
+          <Input id="variant-barcode" name="barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Opsional" />
           {vState?.errors?.barcode ? (
             <p role="alert" className="text-xs text-destructive">{vState.errors.barcode}</p>
           ) : null}
@@ -147,6 +153,8 @@ function VariantSection({ product }: { product: Product }) {
               type="number"
               min="0"
               step="0.01"
+              value={sellPrice}
+              onChange={(e) => setSellPrice(e.target.value)}
               placeholder={`Ikut produk (${product.sell_price})`}
             />
             {vState?.errors?.sell_price ? (
@@ -161,7 +169,8 @@ function VariantSection({ product }: { product: Product }) {
               type="number"
               min="0"
               step="0.01"
-              defaultValue="0"
+              value={minStock}
+              onChange={(e) => setMinStock(e.target.value)}
               required
             />
             {vState?.errors?.min_stock ? (
